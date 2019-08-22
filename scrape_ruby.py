@@ -78,12 +78,18 @@ for (root,dirs,files) in os.walk('/home/john/Desktop/exploitdb/exploitdb/exploit
                 if not metasploit:
                     continue
                 counter_metas += 1
+                exploit = exploit.replace('\\','\\\\')
                 array = re.findall(r"\\?'(.*?)\\?\\?'[^\w]", exploit)   # Get all quoted strings
                 for string in array:
+                    string_1 = string
                     if '#' in string:
-                        string_1 = string.replace('#','dash')
-                        print(string_1)
+                        string_1 = string.replace('#','dash')   # Remove '#' inside them to not lose data when eliminate comments
                         exploit = re.sub(re.escape(string), "{}".format(string_1), exploit)
+                    string_1 = string_1.strip('"')  # Replace '"' with '`' to avoid conflict in JSON
+                    if '"' in string_1: 
+                        print(re.escape(string_1))
+                        print(repr(string_1))
+                        exploit = re.sub(re.escape(string_1), string_1.replace('"', '`'), exploit)
                 exploit = re.sub('(?:[,\s](#[^{\n]?.*\n{1}\w.*|#[^{\n]?.*)|(#[\'"].*?[\'"]?\n))', '', exploit)  # Delete comments
                 exploit = re.sub('=begin.*?=end', '', exploit, flags=re.DOTALL) # Delete =begin and =end
                 exploit = re.sub('@.*\s*=\s*.*', '', exploit) # Delete annotations
@@ -115,11 +121,10 @@ for (root,dirs,files) in os.walk('/home/john/Desktop/exploitdb/exploitdb/exploit
                     _, desc, _ = desc[0]
                 print(nospace)
                 platform = re.findall('(%w{|%w\(|%w\[)(.*?)(}|\)|\]),?', nospace)   # Find platform
-                nospace = re.sub("('BadChars' : )(?:'.*?'(?=\s?,\s|\s?})|\".*?\"?(?=\s?,\s'?|\s?})|.*?(, '))", "\g<1>''\g<2>", nospace) # Replace 'BadChars'
-                print(nospace)
+                nospace = re.sub("('BadChars' : )(?:'.*?'(?=\s?,\s|\s?})|\".*?\"?(?=\s?,\s'|\s?})|.*?(, '))", "\g<1>''\g<2>", nospace) # Replace 'BadChars'
 
-                nospace = re.sub('0x0*[1-9a-fA-F][0-9a-fA-F]*','0', nospace)    # Replace hex numbers with '0'
-                nospace = re.sub("'EncoderType' : (.*?)(,|}|\])", "'EncoderType' : '\g<1>'\g<2>", nospace)  # Replace 'EncoderType'
+                nospace = re.sub('0x0*[0-9a-fA-F][0-9a-fA-F]*','0', nospace)    # Replace hex numbers with '0'
+                nospace = re.sub("'EncoderType' : (.*?)(,|}|\])", "'EncoderType' : ''\g<2>", nospace)  # Replace 'EncoderType'
                 nospace = re.sub("\]\s*\[", "], [", nospace)    # Add ',' between '] ['
                 authors = re.findall("'Authors?' : \[\s*(.*?)\],? '", nospace)  # Find the 'Author' (array)
                 if not authors:
@@ -138,43 +143,51 @@ for (root,dirs,files) in os.walk('/home/john/Desktop/exploitdb/exploitdb/exploit
                 nospace = re.sub('(.*?)" "(.*)', '\g<1>", "\g<2>', nospace) # Add ',' between 'a_string" "another_one'
                 nospace = re.sub('(,)\s*,', ' \g<1>', nospace)  # Remove two consecutive ','
                 nospace = re.sub('(,)\s*([}\]\)])', ' \g<2>', nospace)  # Remove ',' from ', }' (not allowed on JSON)
+                
                 nospace = re.sub('(\[|{)\s*,', ' \g<1>', nospace)   # Remove ',' from '{, ' (not allowed on JSON)
                 nospace = re.sub('("BrowserRequirements" : )({.*})\s*([},\]])(?=\s*["{\[]+|$)', '\g<1>""\g<3>', nospace)    # Delete 'BrowserRequirements'
-                print(nospace)
                 nospace = re.sub('"Stance" : (.*?)(,|})', '"Stance" : "\g<1>"\g<2>', nospace)   # Add quotation marks to 'Stance' value
-                nospace = re.sub(':\s*(\(.*?\))([,}])', ': "\g<1>"\g<2>', nospace)  # Add quotation marks to ': some_unquoted_value'
-                nospace = re.sub('([^:,\[{\(\)]) ([{"\[\'])', '\g<1>, \g<2>', nospace)  # Add ',' to ') (' 
+                
+                nospace = re.sub('"\s*:\s*(\(.*?\))([,}])', '" : "\g<1>"\g<2>', nospace)  # Add quotation marks to ': (some_unquoted_value)'
+                nospace = re.sub('([^:,\[{\(\)+\.]) ([{"\[\'])', '\g<1>, \g<2>', nospace)  # Add ',' to ') (' 
+                print()
+                print(nospace)
                 nospace = re.sub('(\s*?{\s*?|\s*?,\s*?)(["])?([a-zA-Z0-9]+)(["])?\s?:\s+([^\/\[]+?)', '\g<1>"\g<3>" : \g<5>', nospace)  # Add quotation marks to 'lowercase_string: value'
                 nospace = re.sub('(%[qQ][{\(\[]|%[\({\[])(.*?)(}|\))\s*,\s*"', '{}, "'.format(desc.replace('::', ':~:')) ,nospace)  # Replace description
                 nospace = re.sub('("PrependEncoder" :\s+)([^"\(]\S*[^"},]|\(.*\)|".*?"([\s,}]))', '\g<1>""\g<3>', nospace)  # Delete 'PrependEncoder'
+                
                 nospace = re.sub('("Targets"\s*:\s*)(\d+.*?\d+)', '\g<1>"\g<2>"', nospace)  #  Add quotation marks to 'Targets: 1..2'
-                nospace = re.sub('([{:])\s+(:\w+)', '\g<1> "\g<2>"', nospace)   #  Add quotation marks to ':some_value'
+                nospace = re.sub('([{:,])\s+(:\w+)', '\g<1> "\g<2>"', nospace)   #  Add quotation marks to ':some_value'
                 nospace = re.sub('"Name"\s*:\s*"(.*?)", "', '"Name" : "'+title.replace('\n', ' ').replace('::', ':~:') + '", "', nospace)   # Replace title
                 if platform:
                     _,platform,_ = platform[0]
                     nospace = re.sub('(%w{|%w\(|%w\[)(.*?)(}|\)|\]),?', '"{}",'.format(platform) ,nospace)  # Replace platform
                 nospace = re.sub('("Space" : )[^"][0-9_,+A-Za-z\*\.\)\(\s\-\$]*', '\g<1> 1024, ', nospace)  # Add constant value to 'Space' adress
-                nospace = re.sub('"Prepend" : (?:.*(?:\.[\s\n\r]*[\w]+)[\s\n\r]*(?:\(.*?\))|"?.*?"\s([,}])|"?.*?"\s*?)', '\g<1>', nospace)  # Remove 'Prepend' value (may contain method calls - first regex)
-                print(repr(desc))
+                nospace = re.sub('"Prepend" : (?:"?.*?"?\s*([,}]\s*[",])|"?.*?"\s*?)', '\g<1>', nospace)  # Remove 'Prepend' value (may contain method calls - first regex)
                 nospace = re.sub('(,)\s*,', ' \g<1>', nospace)
                 nospace = re.sub('(,)\s*([}\]\)])', ' \g<2>', nospace)
                 nospace = re.sub('(\[|{)\s*,', ' \g<1>', nospace)
                 nospace = re.sub('(\w*_LICENSE|ARCH_\w*)(\s*\]*?)', '"\g<1>"', nospace) # Add quotation marks to 'License' and 'Arch' values
-                nospace = re.sub('(:\s+\[)([A-Z_]+[^a-z0-9-"\]}{\[]+)(\])', '\g<1>"\g<2>"\g<3>', nospace)   # Add quotation marks to ': CAPITAL_LETTERS'
+                nospace = re.sub('(:\s+\[\s*)([A-Z_]+[^a-z0-9-"\]}{\[]+)(\s*\])', '\g<1>"\g<2>"\g<3>', nospace)   # Add quotation marks to ': CAPITAL_LETTERS'
                 nospace = re.sub('"Signature" : \/.*?\/.*?,', '', nospace)  # Remove Signature
-                arithmetics = re.findall('(\d+)(\*|\+)(\d+)', nospace)  # Find arithmetic operations to replace with actual value
-                if arithmetics:
+                arithmetics = re.findall('(\d+)(\s*)(\*|\+)(\s*)(\d+)(,?)', nospace)  # Find arithmetic operations to replace with actual value
+                while(arithmetics):
+                    print(arithmetics)
                     for operation in arithmetics:
-                        a, sign, b = operation
+                        a,sp1, sign,sp2, b, ending = operation
                         if sign == '+':
                             result = int(a) + int(b)
                         elif sign == '*':
                             result = int(a) * int(b)
-                        nospace = re.sub(re.escape('{}{}{}'.format(a, sign, b)), str(result), nospace)
+                        
+                        nospace = re.sub(re.escape('{}{}{}{}{}{}'.format(a,sp1,sign,sp2,b,ending)), str(result), nospace)
+                    arithmetics = re.findall('(\d+)\s*(\*|\+)\s*(\d+),?', nospace)  # Find arithmetic operations to replace with actual value
+                
                 hex_values = re.findall(r'(?:\\x[0-9a-fA-F]+)+', nospace)   # Find hex escaped values
                 for group in hex_values:
                     nospace = re.sub(re.escape(group), "Some string", nospace)  # Replace them with a constant
                 nospace = re.sub(': nil', ': null', nospace)    # Replace 'nil' 
+                print(nospace)
                 targets = re.findall('("Targets" : \[\s*\[?.*\s*\]\s*\])', nospace) # Edit the 'Targets' array
                 if targets:
                     to_edit = re.findall('\[\s*\[?\s*(.*?\s*})\s*\]\s*\]?', targets[0]) # Get the arrays
@@ -189,13 +202,14 @@ for (root,dirs,files) in os.walk('/home/john/Desktop/exploitdb/exploitdb/exploit
                             to_insert = '{ ' + check_brackets + ' }'
                             match1 = match.replace(check_brackets, to_insert)
                             nospace = re.sub(re.escape(match), match1, nospace)     
+                print(nospace)
                 nospace = re.sub(r'\\"([^,])', "'\g<1>", nospace)   # Some problematic endings from Windows paths eg. "C:\\"(treated like escape for '"')
-                references  = re.findall('"References" : \[\s*(.*?)\s*\], "', nospace)  # Find references
+                references  = re.findall('"References" : \[\s*(.*?)\s*\], "', nospace)  # Find references eg. ([ ["CVE", "YYYY-NR"] ])
                 if references:
                     references = references[0]
                     if references:
  
-                        if not references.startswith('['):
+                        if not references.startswith('['):  # Some anomalies like '"URL" : "SRC"' or '"URL", "SRC", "URL2", "SRC2"' so trying to create the correct format
                             new_array_1 = references.split(', ')
                             new_array = []
 
@@ -206,18 +220,18 @@ for (root,dirs,files) in os.walk('/home/john/Desktop/exploitdb/exploitdb/exploit
                                     values = string.strip('"').split(' ')
                                     new_array.extend('"'+string+'"' for string in values)
                             alt_array = []
-                            alt_array.extend('[ {} ]'.format(arr) for arr in new_array if re.findall('(".*?")\s*:\s*(".*?")', arr))
+                            alt_array.extend('[ {} ]'.format(arr) for arr in new_array if re.findall('(".*?")\s*:\s*(".*?")', arr)) # 
                             non_array = [arr for arr in new_array if not re.findall('(".*?")\s*:\s*(".*?")', arr)]
                             if len(non_array) % 2 == 0:
                                 new_array = ['[ {}, {} ]'.format(non_array[i], non_array[i+1]) for i in range(0, len(non_array), 2)]
                                 alt_array.extend(new_array)
                             references = ', '.join(alt_array)
-                        references_replaced = re.sub('(\[\s*".*?")\s*:\s*(".*?"\s*\])', '\g<1>, \g<2>', references)
+                        references_replaced = re.sub('(\[\s*".*?")\s*:\s*(".*?"\s*\])', '\g<1>, \g<2>', references) # Replace ':' with ','
                         print(references_replaced)
-                        nospace = re.sub(re.escape(references), references_replaced, nospace)
-                nospace = re.sub(':?\s([^"]\w*::.*?[^"])(,)', ': "\g<1>"\g<2>', nospace)
+                        nospace = re.sub(re.escape(references), references_replaced, nospace)   # Replace the old format with the newly created on
+                nospace = re.sub(':?\s([^"]\w*::.*?[^"])(,)', ': "\g<1>"\g<2>', nospace)    # Add quotation marks to ': MSF::CONSOLE' like values
                 print(nospace)
-                myfile = json.dumps(nospace.replace('\\','\\\\'))
+                myfile = json.dumps(nospace.replace('\\','\\\\'))   # Escape the 'backslash' and dumps to JSON
                 try:
                     jsonf = json.loads(json.loads(myfile))
                     title = "NOCVE"
