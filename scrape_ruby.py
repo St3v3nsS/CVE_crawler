@@ -30,8 +30,7 @@ def revert(char):
 def construct_url(uris):
     if uris:
         for i in range(len(uris)):
-            print(uris[i])
-            if 'bin' in uris[i] or 'cmd' in uris[i]:
+            if '/bin' in uris[i] or 'cmd' in uris[i]:
                 continue
             elif 'path' in uris[i] or 'target' in uris[i] or 'base' in uris[i]:
                 continue 
@@ -90,7 +89,7 @@ def find_desc(description):
 
         if (count == 0 and found and word == revert(delimiter)):
             return (start, i+1, is_q)
-        elif (description[i-1] == revert(delimiter) and word == ','):
+        elif (description[i-1] == revert(delimiter) and word == ',' and "".join(description[i+1:].split())[0] in "\'\""):
             return (start, i, is_q)
     return (start, end, is_q)
 
@@ -177,6 +176,7 @@ for (root,dirs,files) in os.walk('/home/john/Desktop/exploitdb/exploitdb/exploit
                     nospace = '{' + nospace + '}'   #   Add brackets
                 
                 platform = re.findall('(%w{|%w\(|%w\[)(.*?)(}|\)|\]),?', nospace)   # Find platform
+
                 nospace = re.sub("('BadChars' : )(?:'.*?'(?=\s?,\s|\s?})|\".*?\"?(?=\s?,\s'|\s?})|.*?(, '))", "\g<1>''\g<2>", nospace) # Replace 'BadChars'
 
                 nospace = re.sub('0x0*[0-9a-fA-F][0-9a-fA-F]*','0', nospace)    # Replace hex numbers with '0'
@@ -184,14 +184,16 @@ for (root,dirs,files) in os.walk('/home/john/Desktop/exploitdb/exploitdb/exploit
                 nospace = re.sub("\]\s*\[", "], [", nospace)    # Add ',' between '] ['
                 authors = re.findall("'Authors?' : \[\s*(.*?)\],? '", nospace)  # Find the 'Author' (array)
                 if not authors:
-                    authors = re.findall("'Authors?' : \[?\s*(.*?)\]?,? '", nospace)    # Find the 'Author' (only one)
+                    authors = re.findall("'Authors?' : \s*(.*?[\s']),? '", nospace)    # Find the 'Author' (only one)
                 if authors:
                     authors = re.split(", (?=(?:[^\"']*[\"'][^\"']*[\"'])*[^\"']*$)", authors[0])   # Split authors by the most outer ','
                     for author in authors:
-                        if not author.startswith(('"',"'")) and not author.endswith(('"','"')):
+                        author = author.strip()
+                        if not ((author.startswith('"') and author.endswith('"')) or (author.startswith("'") and author.endswith("'"))):
                             nospace = re.sub(re.escape(author), "", nospace)    #   Delete wrong name format
                         else:
                             author_rep = author[1:-1].replace('"', '')  # Delete '"' from 'O"Shea'
+                            author_rep = author_rep.replace("'", '')  # Delete '"' from 'O"Shea'
                             nospace = re.sub(re.escape(author[1:-1]), author_rep, nospace)
                 desc = '"' + desc.replace('"', "'") + '"'   #   Replace '"' with "'"
                 title = title.replace('"', "'")
@@ -200,7 +202,7 @@ for (root,dirs,files) in os.walk('/home/john/Desktop/exploitdb/exploitdb/exploit
                 nospace = re.sub('(.*?)" "(.*)', '\g<1>", "\g<2>', nospace) # Add ',' between 'a_string" "another_one'
                 nospace = re.sub('(,)\s*,', ' \g<1>', nospace)  # Remove two consecutive ','
                 nospace = re.sub('(,)\s*([}\]\)])', ' \g<2>', nospace)  # Remove ',' from ', }' (not allowed on JSON)
-                
+                nospace = re.sub(r'"\\\\\\\\x[a-zA-Z0-9\\x"\.\(\)+\s]+,', '"",', nospace) # Remove some encoded hex values      
                 nospace = re.sub('(\[|{)\s*,', ' \g<1>', nospace)   # Remove ',' from '{, ' (not allowed on JSON)
                 nospace = re.sub('("BrowserRequirements" : )({.*})\s*([},\]])(?=\s*["{\[]+|$)', '\g<1>""\g<3>', nospace)    # Delete 'BrowserRequirements'
                 nospace = re.sub('"Stance" : (.*?)(,|})', '"Stance" : "\g<1>"\g<2>', nospace)   # Add quotation marks to 'Stance' value
@@ -208,7 +210,7 @@ for (root,dirs,files) in os.walk('/home/john/Desktop/exploitdb/exploitdb/exploit
                 nospace = re.sub('"\s*:\s*(\(.*?\)\s*)([,}])', '" : "\g<1>"\g<2>', nospace)  # Add quotation marks to ': (some_unquoted_value)'
                 nospace = re.sub('([^:,\[{\(\)+\.]) ([{"\[\'])', '\g<1>, \g<2>', nospace)  # Add ',' to ') (' 
                 
-                nospace = re.sub('(\s*?{\s*?|\s*?,\s*?)(["])?([a-zA-Z0-9]+)(["])?\s?:\s+([^\/\[]+?)', '\g<1>"\g<3>" : \g<5>', nospace)  # Add quotation marks to 'lowercase_string: value'
+                nospace = re.sub('(\s*?{\s*?|\s*?,\s*?)(["])?([a-zA-Z0-9_]+)(["])?\s?:\s+([^\/\[]+?)', '\g<1>"\g<3>" : \g<5>', nospace)  # Add quotation marks to 'lowercase_string: value'
                 description = re.findall('"Description"\s*:\s*(.*)', nospace)
                 if description:
                     description = description[0]
@@ -216,7 +218,6 @@ for (root,dirs,files) in os.walk('/home/john/Desktop/exploitdb/exploitdb/exploit
                     if start != -1:
                         nospace = nospace.replace(description[start:end], desc.replace('::', ':~:'))
                 nospace = re.sub('("PrependEncoder" :\s+)(.*\.[\s\n\r]*[\w]+\(.*?\).*?(}?,?\s*")|[^"\(]\S*[^"},]|\(.*\)|".*?"\s*([,}]))', '\g<1>""\g<3>\g<4>', nospace)  # Delete 'PrependEncoder'
-                
                 nospace = re.sub('("Targets"\s*:\s*)(\d+.*?\d+)', '\g<1>"\g<2>"', nospace)  #  Add quotation marks to 'Targets: 1..2'
                 nospace = re.sub('(\s*[{:,\[])\s+(:\w+)', '\g<1> "\g<2>"', nospace)   #  Add quotation marks to ':some_value'
                 nospace = re.sub('"Name"\s*:\s*"(.*?)", "', '"Name" : "'+title.replace('\n', ' ').replace('::', ':~:') + '", "', nospace)   # Replace title
@@ -249,22 +250,33 @@ for (root,dirs,files) in os.walk('/home/john/Desktop/exploitdb/exploitdb/exploit
                 for group in hex_values:
                     nospace = re.sub(re.escape(group), "Some string", nospace)  # Replace them with a constant
                 nospace = re.sub(': nil', ': null', nospace)    # Replace 'nil' 
-                targets = re.findall('("Targets" : \[\s*\[?.*\s*\]\s*\])', nospace) # Edit the 'Targets' array
+                targets = re.findall('("Targets" : \[\s*\[?.*?[,\s]+.*\s*\]\s*\])', nospace) # Edit the 'Targets' array
                 if targets:
-                    to_edit = re.findall('\[\s*\[?\s*(.*?\s*})\s*\]\s*\]?', targets[0]) # Get the arrays
-                    if not to_edit:
-                        to_edit = re.findall('\[\s*\[?\s*(.*?\s*\])\s*\]?\s*\]?', targets[0]) # Can be only one
-                    for i, match in enumerate(to_edit):
-                        if match.endswith(']'): # Some problematic endings 
-                            if not re.findall('"Arch" : \[', match):
-                                match = match[:-1]
-                        check_brackets = re.findall('^".*?"\s*,\s*(.*)', match)[0] # Check if after "some string" exist a '{' eg. ["some_string", {}]
-                        if not check_brackets.startswith('{'):  # If not, add them, otherwise JSON will throw an exception (can't have "key" : "value" inside arrays only if it is an object)
-                            to_insert = '{ ' + check_brackets + ' }'
-                            match1 = match.replace(check_brackets, to_insert)
-                            nospace = re.sub(re.escape(match), match1, nospace)     
+                    to_delete = ['References', 'Author', 'Disclosure']
+                    values = [x in targets[0] for x in to_delete]
+                    if len(set(values)) == 1 and values[0] == False:
+                        print(values)
+                        nospace = re.sub('("Targets" : \[\s*\[?.*?[,\s]+.*\s*\]\s*\])', '', nospace)
+                        nospace = re.sub('(,)\s*,', ' \g<1>', nospace)
+                        nospace = re.sub('(,)\s*([}\]\)])', ' \g<2>', nospace)
+                        nospace = re.sub('(\[|{)\s*,', ' \g<1>', nospace)
+                        nospace = re.sub(',\s*\d+\s*[\-\+\*]\s*\d+', '', nospace)
+                    else:
+                        to_edit = re.findall('\[\s*\[?\s*(.*?\s*})\s*\]\s*\]?', targets[0]) # Get the arrays
+                        if not to_edit:
+                            targets[0] = re.sub('"References" : \[\s*(.*?)\s*\]\s*\]', '', targets[0])
+                            to_edit = re.findall('\[\s*\[?\s*(.*?\s*\])\s*\]?\s*\]?', targets[0]) # Can be only one
+                        for i, match in enumerate(to_edit):
+                            if match.endswith(']'): # Some problematic endings 
+                                if not re.findall('"Arch" : \[', match):
+                                    match = match[:-1]
+                            check_brackets = re.findall('^".*?"\s*,\s*(.*)', match)[0] # Check if after "some string" exist a '{' eg. ["some_string", {}]
+                            if not check_brackets.startswith('{'):  # If not, add them, otherwise JSON will throw an exception (can't have "key" : "value" inside arrays only if it is an object)
+                                to_insert = '{ ' + check_brackets + ' }'
+                                match1 = match.replace(check_brackets, to_insert)
+                                nospace = re.sub(re.escape(match), match1, nospace)     
                 nospace = re.sub(r'\\"([^,])', "'\g<1>", nospace)   # Some problematic endings from Windows paths eg. "C:\\"(treated like escape for '"')
-                references  = re.findall('"References" : \[\s*(.*?)\s*\], "', nospace)  # Find references eg. ([ ["CVE", "YYYY-NR"] ])
+                references  = re.findall('"References" : \[\s*(.*?)\s*\]\s*,\s*"', nospace)  # Find references eg. ([ ["CVE", "YYYY-NR"] ])
                 if references:
                     references = references[0]
                     if references:
@@ -323,7 +335,6 @@ for (root,dirs,files) in os.walk('/home/john/Desktop/exploitdb/exploitdb/exploit
                     URIs = re.findall('(GET|POST|PATCH|PUT) (.*) HTTP', exploit)
                     if URIs:
                         URIs = ['/'+URIs[i][1].lstrip('/') for i in range(len(URIs)) if URIs[i][1] != '/'] 
-
                     uris = re.findall('\s*[\'\"](\/[^#].*?)[\'\"]', exploit)
                     construct_url(uris)
 
@@ -358,6 +369,7 @@ for (root,dirs,files) in os.walk('/home/john/Desktop/exploitdb/exploitdb/exploit
                     myDict[title]['URI'] = list(set(URIs))
 
                     print(json.dumps(myDict))
+                    print(URIs)
                     cve_col.insert(myDict)
                 except ValueError as e:
                     error = e
@@ -369,7 +381,8 @@ for (root,dirs,files) in os.walk('/home/john/Desktop/exploitdb/exploitdb/exploit
                                 "date": date
                             }
                 collection.update({"filename":filename},document, upsert=True)
-            except:
+            except ValueError as e:
+                print(e)
                 counter_err += 1
                 doc = {
                     "root": root,
