@@ -5,6 +5,7 @@ import time, datetime
 from Naked.toolshed.shell import muterun_rb
 from url_normalize import url_normalize
 from pymongo import MongoClient
+from scrape_html import HTMLParser
 
 
 client = MongoClient('mongodb://localhost:27017')
@@ -30,41 +31,42 @@ def revert(char):
 def construct_url(uris):
     if uris:
         for i in range(len(uris)):
-            if '/bin' in uris[i] or 'cmd' in uris[i]:
+            if '/bin' in uris[i] or 'cmd' in uris[i] or '/c' == uris[i] or '/>' in uris[i]:    # If we found '/bin/sh' or '/cmd' continue 
                 continue
-            elif 'path' in uris[i] or 'target' in uris[i] or 'base' in uris[i]:
+            elif 'path' in uris[i] or 'target' in uris[i] or 'base' in uris[i]: # If there's a construction like targeturi.path continue
                 continue 
-            elif 'datastore' in uris[i].lower():
-                word = re.findall('datastore\[(.*)\]', uris[i])
+            elif 'datastore' in uris[i].lower():    # If url = datastore[TARGETURI]
+                word = re.findall('datastore\[(.*)\]', uris[i]) # Get the datastore key 
                 if word:
                     word = word[0]
                 else:
                     continue
                 print(word)
                 print(register_options)
-                if word not in register_options:
+                if word not in register_options:    # If the key is not in register_options, then the value is manually introduced in metasploit framework
                     continue
-                to_replace_arr = re.findall("'.*?{}',\s*\[(.*)\]".format(re.escape(word)), register_options)[0]
+                to_replace_arr = re.findall("'.*?{}',\s*\[(.*)\]".format(re.escape(word)), register_options)[0] # Get the array from construction like 'TARGETURI',[boolean, COMMENT', '/PATH']
                 to_replace_word = to_replace_arr.replace(' ', '').split(',')
                 if len(to_replace_word) > 2:
-                    to_replace_word = to_replace_word[2][1:-1]
+                    to_replace_word = to_replace_word[2][1:-1]  # Get the value from the array and strip the "'"
                 else:
                     continue
 
-                URIs.extend([re.sub('datastore\[(.*)\]', to_replace_word, uris[i])])
-            elif '#{' not in str(uris[i]):
-                if '/' != uris[i]:
-                    URIs.extend(['/'+uris[i].lstrip('/')]) 
-            elif '#{' in str(uris[i]):
-                to_search = re.findall('#{(.*)}', uris[i])
+                URIs.extend([re.sub('datastore\[(.*)\]', to_replace_word, uris[i])])    # Replace the datastore with the value
+            elif 'dash{' not in str(uris[i]):
+                if '/' != uris[i]:  #   If the path is '/', don't care
+                    URIs.extend(['/'+uris[i].lstrip('/')]) # add the '/' at the begining of the path
+            elif 'dash{' in str(uris[i]):
+                to_search = re.findall('dash{(.*)}', uris[i]) # The url is like '/dash{url}/'
                 if to_search:
                     urls = []
                     for i in range(len(to_search)):
                         print(to_search[i])
-                        urls.extend(re.findall(to_search[i]+'\s*=\s*[\'"]?(.*?)[\'"]\n', exploit))
+                        urls.extend(re.findall(to_search[i]+'\s*=\s*[\'"]?(.*?)[\'"]\n', exploit))  # Try to find that variable
                     if urls:
-                        URIs.extend(['/'+re.sub('#{(.*)}', url, uris[i]).lstrip('/') for url in urls])
+                        URIs.extend(['/'+re.sub('dash{(.*)}', url, uris[i]).lstrip('/') for url in urls])   # Add the new uri to the main array
 
+# There are some problems with regex so parsing the description was the best way to get all the necessary info
 def find_desc(description):
     start = -1
     end = -1
@@ -74,22 +76,22 @@ def find_desc(description):
     delimiter = ''
     for i, word in enumerate(description):
         
-        if word == '%' and start == -1:
+        if word == '%' and start == -1: # Find the %[qQ] and the delimiter '(', '[' or '{'
             start = i
-            if description[i+1] in 'qQ':
+            if description[i+1] in 'qQ':    
                 is_q = True
-                delimiter = description[i+2]
+                delimiter = description[i+2]    
             else:
                 delimiter = description[i+1]
-        if word in '{[(':
+        if word in '{[(':   
             found = True
             count += 1
         elif word in '}])':
             count -= 1
 
-        if (count == 0 and found and word == revert(delimiter)):
+        if (count == 0 and found and word == revert(delimiter)):    # If there's a matching paranthesis and a odd number of them
             return (start, i+1, is_q)
-        elif (description[i-1] == revert(delimiter) and word == ',' and "".join(description[i+1:].split())[0] in "\'\""):
+        elif (description[i-1] == revert(delimiter) and word == ',' and "".join(description[i+1:].split())[0] in "\'\""):   # There can be some anomalies and try to find the coresponding paranthesis in construction like ")'Author"
             return (start, i, is_q)
     return (start, end, is_q)
 
@@ -107,8 +109,13 @@ for (root,dirs,files) in os.walk('/home/john/Desktop/exploitdb/exploitdb/exploit
         date = datetime.datetime.now().isoformat()
         with open(filename) as f:
             exploit = f.read()
-
+        
+        exploit_type = root.split('/')[-1]
         name1, ext = os.path.splitext(name)
+        
+        if ext == '.html':
+            html_parser = HTMLParser(filename, name1, exploit_type, exploit)
+            html_parser.parse_infos()
         if ext == '.rb':
             counter_rb += 1
             try:
@@ -152,15 +159,6 @@ for (root,dirs,files) in os.walk('/home/john/Desktop/exploitdb/exploitdb/exploit
                 exploit = re.sub('(?:[,\s](#[^{\n]?.*\n{1}\w.*|#[^{\n]?.*)|(#[\'"].*?[\'"]?\n))', '', exploit)  # Delete comments
                 exploit = re.sub('=begin.*?=end', '', exploit, flags=re.DOTALL) # Delete =begin and =end
                 exploit = re.sub('@.*\s*=\s*.*', '', exploit) # Delete annotations
-                # value = re.findall('(\S\s*)=(?:end|begin)\s*(.*)',  exploit)
-                # if value:
-                #     value, after = value[0]
-                #     if value[0] == ',':
-                #         exploit = re.sub('(\S\s*)=(?:end|begin)', '\g<1>',exploit)
-                #     else:
-                #         exploit = re.sub('(\S\s*)=(?:end|begin)', '\g<1>,',exploit)
-                #     if after[0] != '[':
-                #         exploit = re.sub(re.escape(after), '', exploit)
 
                 lista = re.findall(r'\bdef initialize(?:\(\s*i|\s*super|\(\s*.*?\s*\)?\s*super)(.*?)(?:\bregister_options\b|\bend\b)\s*(?:def|[A-Za-z_0-9]+\s*=)', exploit, re.DOTALL)[0]    # Get the main initialize function
                 nospace = lista + 'end of the body' # Add a flag
@@ -326,7 +324,7 @@ for (root,dirs,files) in os.walk('/home/john/Desktop/exploitdb/exploitdb/exploit
                         if key in arr:
                             myDict[title][key] = jsonf.get(key)
 
-                    myDict[title]['Type'] = 'webapps'
+                    myDict[title]['Type'] = exploit_type
 
                     register_options = re.findall('register_options\((.*?)],?(?:\s*self\.class)?\)?\s*(?:end)', exploit, re.DOTALL)
                     if register_options:
