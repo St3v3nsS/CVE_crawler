@@ -31,10 +31,13 @@ def revert(char):
 def construct_url(uris):
     if uris:
         for i in range(len(uris)):
-            if '/bin' in uris[i] or 'cmd' in uris[i] or '/c' == uris[i] or '/>' in uris[i]:    # If we found '/bin/sh' or '/cmd' continue 
+
+            if '/bin' in uris[i] or 'cmd' in uris[i] or '/c' == uris[i] or '/>' in uris[i] or '\", ' in uris[i] or "/', " in uris[i] or '/' == uris[i]:    # If we found '/bin/sh' or '/cmd' continue 
                 continue
             elif 'path' in uris[i] or 'target' in uris[i] or 'base' in uris[i]: # If there's a construction like targeturi.path continue
                 continue 
+            elif '\\\\r' in uris[i] or '\\\\n' in uris[i] or '/@' in uris[i] or 'rand' in uris[i]:
+                continue
             elif 'datastore' in uris[i].lower():    # If url = datastore[TARGETURI]
                 word = re.findall('datastore\[(.*)\]', uris[i]) # Get the datastore key 
                 if word:
@@ -51,20 +54,21 @@ def construct_url(uris):
                     to_replace_word = to_replace_word[2][1:-1]  # Get the value from the array and strip the "'"
                 else:
                     continue
-
+                if to_replace_word == '/':
+                    continue
                 URIs.extend([re.sub('datastore\[(.*)\]', to_replace_word, uris[i])])    # Replace the datastore with the value
-            elif 'dash{' not in str(uris[i]):
+            elif 'dash{' not in str(uris[i]) and '#{' not in str(uris[i]):
                 if '/' != uris[i]:  #   If the path is '/', don't care
                     URIs.extend(['/'+uris[i].lstrip('/')]) # add the '/' at the begining of the path
-            elif 'dash{' in str(uris[i]):
-                to_search = re.findall('dash{(.*)}', uris[i]) # The url is like '/dash{url}/'
+            elif 'dash{' in str(uris[i]) or '#{' in str(uris[i]):
+                to_search = re.findall('(?:dash|#){(.*)}', uris[i]) # The url is like '/dash{url}/'
                 if to_search:
                     urls = []
                     for i in range(len(to_search)):
                         print(to_search[i])
                         urls.extend(re.findall(to_search[i]+'\s*=\s*[\'"]?(.*?)[\'"]\n', exploit))  # Try to find that variable
                     if urls:
-                        URIs.extend(['/'+re.sub('dash{(.*)}', url, uris[i]).lstrip('/') for url in urls])   # Add the new uri to the main array
+                        URIs.extend(['/'+re.sub('(?:dash|#){(.*)}', url, uris[i]).lstrip('/') for url in urls if url != '/'])   # Add the new uri to the main array
 
 # There are some problems with regex so parsing the description was the best way to get all the necessary info
 def find_desc(description):
@@ -100,6 +104,7 @@ counter = 0
 counter_rb = 0
 counter_metas = 0
 counter_err = 0
+file = open('/home/john/Desktop/metasploits', 'a+')
 for (root,dirs,files) in os.walk('/home/john/Desktop/exploitdb/exploitdb/exploits', topdown=True):
     for name in files:
         filename = os.path.join(root, name)
@@ -119,7 +124,7 @@ for (root,dirs,files) in os.walk('/home/john/Desktop/exploitdb/exploitdb/exploit
         if ext == '.rb':
             counter_rb += 1
             try:
-                print(filename)
+                file.write(filename + '\n')
                 nospace = ""
                 metasploit = re.findall('class Metasploit', exploit)    # Search for 'Metasploit' occurence
                 if not metasploit:
@@ -333,25 +338,33 @@ for (root,dirs,files) in os.walk('/home/john/Desktop/exploitdb/exploitdb/exploit
                     URIs = re.findall('(GET|POST|PATCH|PUT) (.*) HTTP', exploit)
                     if URIs:
                         URIs = ['/'+URIs[i][1].lstrip('/') for i in range(len(URIs)) if URIs[i][1] != '/'] 
-                    uris = re.findall('\s*[\'\"](\/[^#].*?)[\'\"]', exploit)
+                    uris = re.findall('\s*[\'\"](\/[a-zA-Z0-9_.\-~#{}]*?)[\'\"]\s*', exploit)
                     construct_url(uris)
 
                     normalize = re.findall('normalize_uri\((.*)\)', exploit)
                     if normalize:
                         urls = {}
                         for string in normalize:
+                            
                             to_search_1 = re.findall('[?!^\'"](.*?)[?!^\'"]', string)
                             splitted = string.replace(' ', '').replace("'",'').split(',')
                             to_search = [word for word in splitted if word not in to_search_1]
                             if to_search:
                                 for i in range(len(to_search)):
                                     if 'uri' in to_search[i] or 'path' in to_search[i] or 'datastore' in to_search[i].lower():
+                                        word = re.findall("'TARGETURI',\s*\[(.*?)\]", exploit)
+                                        if word:
+                                            word = word[0].replace(' ', '').split(',')[2]
+                                        else:
+                                            word = ''
+                                    elif 'rand' in to_search[i]:
                                         continue
-                                    word = re.findall(re.escape(to_search[i])+'\s*=\s*[\'"]?(.*?)[\'"]\n', exploit)
-                                    if not word:
-                                        word = ''
                                     else:
-                                        word = word[0]
+                                        word = re.findall(re.escape(to_search[i])+'\s*=\s*[\'"]?(.*?)[\'"]\n', exploit)
+                                        if not word:
+                                            word = ''
+                                        else:
+                                            word = word[0]
                                     urls[to_search[i]] = word
                         normaliz = []
                         for string in normalize:
@@ -363,11 +376,17 @@ for (root,dirs,files) in os.walk('/home/john/Desktop/exploitdb/exploitdb/exploit
 
                     uris = re.findall("'uri'\s*=>\s*[\'\"]\/?#{.*?}(\S*)\?\S*[\'\"]", exploit)
                     construct_url(uris)
-
+                    
+                    for i,uri in enumerate(URIs):
+                        regex = re.findall('(.*?)%[qQwW][\(\[{](.*?)[\]\)}]', uri)
+                        if regex:
+                            regex = regex[0]
+                            URIs[i] = regex[0]+regex[1]
                     myDict[title]['URI'] = list(set(URIs))
-
+                    if URIs:
+                        file.write(str(list(set(URIs))))
+                        file.write('\n')
                     print(json.dumps(myDict))
-                    print(URIs)
                     cve_col.insert(myDict)
                 except ValueError as e:
                     error = e
@@ -393,3 +412,4 @@ print(counter)
 print(counter_rb)
 print(counter_metas)
 print(counter_err)
+file.close()
