@@ -15,6 +15,9 @@ collection.create_index([("filename", 1)], unique=True)
 cve_col = db['cves']
 ce = db['ce']
 ce.create_index([("filename", 1)], unique=True)
+exploitdb = db['exploitdb']
+mitre_ref = db['cve_refs']
+
 brackets = {
     '{':'}',
     '[':']',
@@ -102,6 +105,7 @@ def find_desc(description):
 
 counter = 0
 counter_rb = 0
+counter_html = 0
 counter_metas = 0
 counter_err = 0
 file = open('/home/john/Desktop/metasploits', 'a+')
@@ -111,6 +115,7 @@ for (root,dirs,files) in os.walk('/home/john/Desktop/exploitdb/exploitdb/exploit
         parsed = True
         error = ""
         counter += 1
+
         date = datetime.datetime.now().isoformat()
         with open(filename) as f:
             exploit = f.read()
@@ -118,8 +123,17 @@ for (root,dirs,files) in os.walk('/home/john/Desktop/exploitdb/exploitdb/exploit
         exploit_type = root.split('/')[-1]
         name1, ext = os.path.splitext(name)
         
+        description_edb = exploitdb.find_one({"filename":name})
+        if description_edb is not None:
+            description_edb = description_edb['title']
+
+        platform_edb = exploitdb.find_one({"filename":name})
+        if platform_edb is not None:
+            platform_edb = platform_edb['platform']
+
         if ext == '.html':
-            html_parser = HTMLParser(filename, name1, exploit_type, exploit)
+            counter_html += 1
+            html_parser = HTMLParser(filename, name1, exploit_type, description_edb, platform_edb, exploit)
             html_parser.parse_infos()
         if ext == '.rb':
             counter_rb += 1
@@ -312,24 +326,42 @@ for (root,dirs,files) in os.walk('/home/john/Desktop/exploitdb/exploitdb/exploit
                 myfile = json.dumps(nospace.replace('\\','\\\\'))   # Escape the 'backslash' and dumps to JSON
                 try:
                     jsonf = json.loads(json.loads(myfile))
-                    title = "NOCVE"
-                    if 'References' in jsonf:
-                        for arr in jsonf.get('References'):
-                            if arr and arr[0] == 'CVE':
-                                title = arr[0] + '-' + arr[1]
-                                break
+                    title = ''
+
+                    if mitre_ref.find_one({"filename": name1}) is not None:
+                        title = mitre_ref.find_one({"filename": name1})['cve']
+                    else:
+                        if 'References' in jsonf:
+                            for arr in jsonf.get('References'):
+                                if arr and arr[0] == 'CVE':
+                                    title = title + ' ' + arr[0] + '-' + arr[1]
+                            title = title.lstrip()
+
+                    if not title:
+                        title = re.sub('\s', '_', description_edb)
+                        title = re.sub('\.', '@', title)
+                        title = name1 + '_' + title
 
                     myDict = {
-                        title: {}
+                        "EDB-ID": name1,
+                        "Vulnerability": title
                     }
 
                     arr = ['Name', 'Description', 'Platform', 'References', 'Targets']
 
-                    for key in jsonf.keys():
-                        if key in arr:
-                            myDict[title][key] = jsonf.get(key)
+                    for key in arr:
+                        if key in jsonf.keys():
+                            if key == 'Name':
+                                myDict[key] = description_edb
+                            else:
+                                myDict[key] = jsonf.get(key)
+                        else:
+                            if key == 'Name':
+                                myDict[key] = description_edb
+                            elif key == 'Platform':
+                                myDict[key] = platform_edb
 
-                    myDict[title]['Type'] = exploit_type
+                    myDict['Type'] = exploit_type
 
                     register_options = re.findall('register_options\((.*?)],?(?:\s*self\.class)?\)?\s*(?:end)', exploit, re.DOTALL)
                     if register_options:
@@ -382,12 +414,12 @@ for (root,dirs,files) in os.walk('/home/john/Desktop/exploitdb/exploitdb/exploit
                         if regex:
                             regex = regex[0]
                             URIs[i] = regex[0]+regex[1]
-                    myDict[title]['URI'] = list(set(URIs))
+                    myDict['URI'] = list(set(URIs))
                     if URIs:
                         file.write(str(list(set(URIs))))
                         file.write('\n')
                     print(json.dumps(myDict))
-                    cve_col.insert(myDict)
+                    cve_col.update({"EDB-ID":name1}, myDict, upsert=True)
                 except ValueError as e:
                     error = e
                     parsed = False
@@ -408,8 +440,9 @@ for (root,dirs,files) in os.walk('/home/john/Desktop/exploitdb/exploitdb/exploit
                 }
                 ce.update({"filename": name}, doc, upsert=True)
                 
-print(counter)
-print(counter_rb)
-print(counter_metas)
-print(counter_err)
+print('total: ' + str(counter))
+print('ruby: ' + str(counter_rb))
+print('metas: ' + str(counter_metas))
+print('html: ' + str(counter_html))
+print('error: ' + str(counter_err))
 file.close()
