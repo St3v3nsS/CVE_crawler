@@ -8,7 +8,7 @@ from scraper import Scraper
 from pymongo import MongoClient
 from six import string_types
 
-class HTMLParser(Scraper):
+class JSParser(Scraper):
     def __init__(self, filename, name, exploit_type, title, platform, exploit):
         super().__init__(filename, name, exploit_type, title, platform, exploit)
     
@@ -26,66 +26,37 @@ class HTMLParser(Scraper):
         error = False
         parsed_file = True
         try:
+
             title = re.sub('\s', '_', self.title)
             title = re.sub('\.', '@', title)
             title = self.name + '_' + title
 
             refs = []
             description = []
-            component = []
             vversion = []
             name = []
             new_comments = []
             targets = []
 
-            self.exploit = re.sub('&\s*n\s*b\s*s\s*p\s*;', '', self.exploit)
-            file = open('/home/john/Desktop/html', 'a+')
+            file = open('/home/john/Desktop/js', 'a+')
 
             if self.collection.find_one({"filename": self.name}) is not None:
                 title = self.collection.find_one({"filename": self.name})['cve']
             
             # Even if the name of exploit exists, I need it for finding other stuffs, but it will not be included in the json
 
-            comments = re.findall('\/\*(.*?)\*\/', self.exploit, flags=re.S | re.M) # C-style comments
-            html_comments = re.findall('<!?--(.*?)--!?>', self.exploit, flags=re.S | re.M)  # HTML comments
-            if html_comments:
-                value = re.findall('(.*)\n(?:http|[sS]ource:)', html_comments[0])
-                if value and '==' not in value[0] and len(value[0]) > 0 and '**' not in value[0]:
-                    name.extend([value[0]])
-                if not name:
-                    value = re.findall('\n(.*?)\n', html_comments[0], flags=re.M|re.S)
-                    if value and '--' not in value[0] and '==' not in value[0]:
-                        name.extend([value[0]])
-                    if not name:
-                        value = re.findall('(.*?)\n\n', html_comments[0], flags=re.M|re.S)
-                        if value and '--' not in value[0]:
-                            name.extend([value[0]])
-                    else:
-                        value = re.findall('--\n(.*?)\n\n', html_comments[0], flags=re.M|re.S)
-                        if value and ('###' not in value[0] or '===' not in value[0]):
-                            description.extend([value[0]])
-                else:
-                    value = re.findall('\n\n(.*?)\n\n', html_comments[0], flags=re.M|re.S)
-                    if value and ('###' not in value[0] or '===' not in value[0]):
-                        description.extend([value[0]])
+            comments = re.findall('\/\*(.*?)\*\/', self.exploit, flags=re.S | re.M) # Multiline comments
+            comments.extend(re.findall('^//(.*)', self.exploit)) # Single-line comments
 
-
-            comments.append(html_comments)  # HTML comments
-            if not re.findall('^<.*>', self.exploit, flags=re.S |re.M):  
-                comments.append(re.sub('<[\w\s]+>(.*)</\w+>', '', self.exploit,flags= re.S | re.M))    # Take everything outside the < >
-            else:
-                comments.append(re.sub('^<.*>', '', self.exploit,flags= re.S | re.M))    # Take everything outside the < >
-
-            comments.append(re.findall("//'=+(.*?)//'=+", self.exploit,flags= re.S | re.M)) # Some JS comments
-            comments.append(re.findall('(?:##)+(.*)(?:##)+', self.exploit,flags= re.S | re.M))  # Some dashes
-
-            name.extend(re.findall('<[tT][iI][Tt][lLRr][eE]>(.*?)</[Tt][Ii][Tt][LlRr][Ee]>', self.exploit)) # <title>
-            tuples = re.findall('(Netscape|Opera|Safari).*(Browser).*(\(V.*?\))', self.exploit, flags=re.S|re.M)
-            if tuples:
-                tuples = tuples[0]
-                name.extend([tuples[0] + ' ' + tuples[1] + ' ' + tuples[2]])
-                vversion.extend([tuples[0] + ' ' + tuples[1] + ' ' + tuples[2]])
-                name.extend(re.findall('<h\d.?>(.*?)</h\d>', self.exploit)) # headings
+            source_at_begin = re.findall('^[Ss]ource\s*:\s*(.*)\s+(.*)\s+(.*)\s+([^#]+?)\n', self.exploit, flags=re.M) # For comments like source .. \n text \n text
+            if source_at_begin:
+                source_at_begin = source_at_begin[0]
+                refs.extend([source_at_begin[0]])
+                name.extend([source_at_begin[1] ])
+                if ('###' not in source_at_begin[2] or '===' not in source_at_begin[2]):
+                    description.extend([source_at_begin[2]])
+                if len(source_at_begin[1]) > 2 and '####' not in source_at_begin[3]:
+                    targets.extend([source_at_begin[3]])
 
             for array in comments:  #   Make array from array of arrays
                 if isinstance(array, string_types):
@@ -95,65 +66,42 @@ class HTMLParser(Scraper):
                         new_comments.append(comment)
 
             for comment in new_comments:
-                source_at_begin = re.findall('^[Ss]ource.*\s+(.*)\s+(.*)\s+([^#]+?)\n', comment) # For comments like source .. \n text \n text
+
+                source_at_begin = re.findall('^[Ss]ource\s*:\s*(.*)\s+(.*)\s+(.*)\s+([^#]+?)\n', comment, flags=re.M) # For comments like source .. \n text \n text
                 if source_at_begin:
                     source_at_begin = source_at_begin[0]
-                    name.extend([source_at_begin[0] ])
-                    if ('###' not in source_at_begin[1] or '===' not in source_at_begin[1]):
-                        description.extend([source_at_begin[1]])
-                    if len(source_at_begin[0]) > 2 and '####' not in source_at_begin[2]:
-                        targets.extend([source_at_begin[2]])
-                if '==' in comment: # For comments like ==1.==
-                    values = re.findall('==5\..*?==(.*?)-', comment, flags=re.S|re.M)
-                    if values:
-                        description.extend(values)
-                        name.extend(re.findall('==3\.(.*?)==', comment))
-                    else:
-                        values = re.findall('==+\s+(.*?)\n', comment)
-                        if values:
-                            name.extend([values[0]])
-                        
-                elif '-----' in comment and not '//' in comment:    # For comments splitted by -----
-                    values = re.findall('(.*?)--+', comment,flags= re.S | re.M)
-                    if values:
-                        name.extend([values[0]])
-                        if len(values) > 1:
-                            description.extend([values[1]])
-
-                if not name:
-                    name.extend(re.findall('<h\d.?>(.*?)</h\d>', self.exploit)) # headings
+                    refs.extend([source_at_begin[0]])
+                    name.extend([source_at_begin[1] ])
+                    if ('###' not in source_at_begin[2] or '===' not in source_at_begin[2]):
+                        description.extend([source_at_begin[2]])
+                    if len(source_at_begin[1]) > 2 and '####' not in source_at_begin[3]:
+                        targets.extend([source_at_begin[3]])
 
                 # All posibilities depending on how they write their code
-                refs.extend(re.findall('[Ss]ource:\s(.*)', comment))
                 refs.extend(re.findall('(https?://[^,\'\s\"\]\)]+)', comment))
                 refs.extend(re.findall('(C[VW]E)-(\d+(-\d+)?)', comment))
-                description.extend(re.findall('(?:Description|Summary|Product|DESCRIPTION|Desc)\s*:?\s*(.*?)\n\n?', comment))
-                description.extend(re.findall('Vulnerability\.+:?(.*?)#', comment))
-                description.extend(re.findall('Vulnerability Details:\s+(.*)', comment))
-                component.extend(re.findall('Component\s*:\s*(.*)', comment))
+                description.extend(re.findall('(?:Description|Summary|Product|DESCRIPTION)\s*:?\s*(.*)\w', comment, flags=re.M))
+                if '* ' in comment and not description:
+                    value = re.findall('\*\s*(.*)', comment)
+                    if value and '***' not in value[0]:
+                        name.extend([value[0]])
+                        if len(value) > 1:
+                            description.extend([value[1]])
+                
+                if not description and '***' in comment:
+                    value = re.findall('\n(.*)', comment)
+                    if value and len(value) > 1:
+                        description.extend([value[1]])
+
                 vversion.extend(re.findall('Vulnerable version\s*:\s*(.*)', comment))
                 vversion.extend(re.findall('[^\w/](?:VERSIONS?|Versions?(?:\s*numbers:?\s*-+\n)?)\s*:?\s*(.*\s+.*)', comment))
                 vversion.extend(re.findall('Affected\s*version\s*:\s*(.*\s*.*)?\s*\w+:', comment))
                 name.extend(re.findall('[^\w/](?:Title|Name|Topic|Software)\s*:?\s*(.*)', comment))
-                name.extend(re.findall('^(.*?)<br>', comment))
-                name.extend(re.findall('Script\.+:?(.*?)#', comment))
-                name.extend(re.findall('#\s*(\[.*?\])', comment))
-                if '##' not in comment:
-                    name.extend(re.findall('\|\s+\|\s+(.*?)\s+\|\s+\|', comment))
-                else:
-                    values = re.findall('###+\s+(.*?)\s+###+', comment, flags=re.S|re.M)
-                    if values:
-                        values = values[0]
-                        anothers = re.findall('\s+(.*)', comment)
-                        if anothers and len(anothers) > 2 and '###' not in anothers[2]:
-                            name.extend([anothers[1]])
-                            targets.extend([anothers[2]])
-                name.extend(re.findall('Vendor:\s*(.*)', comment))
                 targets.extend(re.findall('(?:Tested|TESTED)\s*(?:on|ON)\s*:\s*(.*)', comment))
+                
         
-            # Transform arrays to strings by joining all the founded variants
+            # Transform arrays to strings by joining all the founded possibilities
             description = ' -- '.join(description)
-            component = ' -- '.join(component)
             vversion = ' -- '.join(vversion)
             targets = ' -- '.join(targets)
             name = ' -- '.join(name)
@@ -170,7 +118,6 @@ class HTMLParser(Scraper):
             file.write(self.filename)
             file.write('Refs:   ' + str(references) + '\n')
             file.write('Desc:   ' + description + '\n')
-            file.write('Comp:   ' + component + '\n')
             file.write('Vers:   ' + vversion + '\n')
             file.write('Name:   ' + self.title + '\n')
             file.write('Targ:   ' + targets + '\n')
@@ -188,7 +135,7 @@ class HTMLParser(Scraper):
                 "Type": self.exploit_type,
                 "URI": list(set(URI))   
             }
-
+        
             cves.update({"EDB-ID":self.name}, myDict, upsert=True)
             print(myDict)
         except Exception as e:
@@ -208,7 +155,7 @@ class HTMLParser(Scraper):
         URIs = []
         URI = []
         try:
-            URIs.extend(regex.findall('value=[\"\']?(?:https?://)?([^<>]+?)[\"\'\s]', self.exploit, timeout=5))
+            URIs.extend(regex.findall('(https?://.*\/.*?)[\)\"]', self.exploit, timeout=5))
         except TimeoutError as e:
             print (e)
         try:    
@@ -216,7 +163,7 @@ class HTMLParser(Scraper):
         except TimeoutError as e:
             print (e)
         try:    
-            URIs.extend(regex.findall('action=[\"\'](?:https?://)?([^>]*?)[\"\']', self.exploit, timeout=5, flags=re.M|re.S))
+            URIs.extend(regex.findall('(?:url|path)\s*[=:]\s*[\'\"](.*?)[\'\"]', self.exploit, timeout=5))
         except TimeoutError as e:
             print (e)
         try:    
