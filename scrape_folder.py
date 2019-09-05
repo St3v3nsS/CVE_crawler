@@ -2,11 +2,11 @@ import re
 import json
 import os
 import time, datetime
-from url_normalize import url_normalize
 from pymongo import MongoClient
 from scrape_html import HTMLParser
 from scrape_js import JSParser
 from scrape_metasploit import MetasploitParser
+from scrape_pascal import PascalScraper
 
 client = MongoClient('mongodb://localhost:27017')
 db = client['exploits']
@@ -36,42 +36,44 @@ counter_err = 0
 file = open('/home/john/Desktop/ruby', 'a+')
 dictionary = {}
 
-for (root,dirs,files) in os.walk('/home/john/Desktop/exploitdb/exploitdb/exploits', topdown=True):
+for (root, dirs, files) in os.walk('/home/john/Desktop/exploitdb/exploitdb/exploits', topdown=True):
     for name in files:
         filename = os.path.join(root, name)
         counter += 1
 
         with open(filename) as f:
             exploit = f.read()
-        
+
         exploit_type = root.split('/')[-1]
         name1, ext = os.path.splitext(name)
-        
-        description_edb = exploitdb.find_one({"filename":name})
+
+        description_edb = exploitdb.find_one({"filename": name})
         if description_edb is not None:
             description_edb = description_edb['title']
 
-        platform_edb = exploitdb.find_one({"filename":name})
+        platform_edb = exploitdb.find_one({"filename": name})
         if platform_edb is not None:
             platform_edb = platform_edb['platform']
 
-
         if dictionary.get(ext) is not None:
-            dictionary[ext] += 1
+            dictionary[ext]['total'] += 1
         else:
-            dictionary[ext] = 1
-
-        if ext == '.html':
+            obj = {
+                "total": 1,
+                "filename": filename
+            }
+            dictionary[ext] = obj
+        if ext == '.html' or ext == '.xhtml':
             counter_html += 1
             html_parser = HTMLParser(filename, name1, exploit_type, description_edb, platform_edb, exploit)
             html_parser.parse_infos()
-        elif ext =='.js':
+        elif ext == '.js':
             counter_js += 1
             js_parser = JSParser(filename, name1, exploit_type, description_edb, platform_edb, exploit)
             js_parser.parse_infos()
         elif ext == '.rb':
             counter_rb += 1
-            metasploit = re.findall('class Metasploit', exploit)    # Search for 'Metasploit' occurence
+            metasploit = re.findall('class Metasploit', exploit)  # Search for 'Metasploit' occurence
             if not metasploit:
                 file.write(filename + '\n')
                 continue
@@ -92,9 +94,12 @@ for (root,dirs,files) in os.walk('/home/john/Desktop/exploitdb/exploitdb/exploit
             counter_python += 1
         elif ext == '.txt':
             counter_txt += 1
+        elif ext == '.pas':
+            pascal_parser = PascalScraper(filename, name1, exploit_type, description_edb, platform_edb, exploit)
+            pascal_parser.parse_infos()
         else:
             counter_any += 1
-                
+
 print('total: ' + str(counter))
 print('ruby: ' + str(counter_rb))
 print('metas: ' + str(counter_metas))
@@ -110,4 +115,5 @@ print('md: ' + str(counter_md))
 print('anyother: ' + str(counter_any))
 print('error: ' + str(counter_err))
 
-print(dictionary)
+with open('ext.json', 'w+') as f:
+    json.dump(dictionary, f)

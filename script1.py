@@ -1,5 +1,4 @@
 from selectolax.parser import HTMLParser
-import sys
 from urlparse import urlparse
 
 def extract(content):
