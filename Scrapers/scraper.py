@@ -1,7 +1,7 @@
 from pymongo import MongoClient
 
 class Scraper(object):
-    def __init__(self, filename, name, exploit_type, title, platform, exploit):
+    def __init__(self, filename, name, exploit_type, title, platform, exploit, ext=None):
         self.exploit = exploit
         self.filename = filename
         self.name = name
@@ -12,9 +12,13 @@ class Scraper(object):
         self.db = self.client['exploits']
         self.collection = self.db['cve_refs']
         self.parsed_col = self.db['parse_exploit']
+        self.ext = ext
     
     def parse_infos(self):
         pass
 
     def parse_url(self):
         pass
+
+    def get_ext(self):
+        return self.ext

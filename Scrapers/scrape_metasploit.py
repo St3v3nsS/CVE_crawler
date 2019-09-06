@@ -1,13 +1,13 @@
 import re
 import json
-import os
-import time, datetime
-from scraper import Scraper
+import datetime
+from .scraper import Scraper
 
 
 class MetasploitParser(Scraper):
-    def __init__(self, filename, name, exploit_type, title, platform, exploit):
-        super().__init__(filename, name, exploit_type, title, platform, exploit)
+    def __init__(self, filename=None, name=None, exploit_type=None, title=None, platform=None, exploit=None):
+        ext = ['.rb']
+        super().__init__(filename, name, exploit_type, title, platform, exploit, ext)
         self.brackets = {
             '{': '}',
             '[': ']',

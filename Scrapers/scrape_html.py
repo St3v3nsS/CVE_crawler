@@ -1,16 +1,14 @@
 import re
-import json
-import time
 import regex
-import time, datetime
+import datetime
 
-from scraper import Scraper
-from pymongo import MongoClient
+from .scraper import Scraper
 from six import string_types
 
 class HTMLParser(Scraper):
-    def __init__(self, filename, name, exploit_type, title, platform, exploit):
-        super().__init__(filename, name, exploit_type, title, platform, exploit)
+    def __init__(self, filename=None, name=None, exploit_type=None, title=None, platform=None, exploit=None):
+        ext = ['.html', '.xhtml']
+        super().__init__(filename, name, exploit_type, title, platform, exploit, ext)
     
     def parse_infos(self):
         cves = self.db['cves']

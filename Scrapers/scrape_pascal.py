@@ -2,12 +2,13 @@ import datetime
 import re
 import regex
 
-from scraper import Scraper
+from .scraper import Scraper
 
 
 class PascalScraper(Scraper):
-    def __init__(self, filename, name, exploit_type, title, platform, exploit):
-        super().__init__(filename, name, exploit_type, title, platform, exploit)
+    def __init__(self, filename=None, name=None, exploit_type=None, title=None, platform=None, exploit=None):
+        ext = ['.pas']
+        super().__init__(filename, name, exploit_type, title, platform, exploit, ext)
 
     def parse_infos(self):
         cves = self.db['cves']  # The main mongo collection
@@ -123,6 +124,7 @@ class PascalScraper(Scraper):
 
             if ',' in uri or '/bin/' in uri or '/' == uri or '==' in uri or 'cmd' in uri or '/div>' in uri:
                 continue
+
             new_uris = uri.strip('/').split('/')
             if len(list(set(uri.strip('/').split('/')))) == 1 and len(new_uris) > 1:
                 continue
@@ -130,8 +132,8 @@ class PascalScraper(Scraper):
                 if new_uris[0].lower() not in header_values:
                     URI.append(uri)
             elif len(new_uris) == 1 and not uri.startswith('/') and '.' not in uri:
-                continue
-            else:
+                continue    # Skip the value like 'button' etc
+            else:   # Skip the emails
                 try:
                     if regex.findall('\w*@\w*(?:\.\w*)*', uri, timeout=5):
                         continue
