@@ -1,12 +1,14 @@
 import datetime
 import re
+import time
 
+import regex
 from .scraper import Scraper
 
 
-class PHPScraper(Scraper):
+class WSFScraper(Scraper):
     def __init__(self, filename=None, name=None, exploit_type=None, title=None, platform=None, exploit=None):
-        ext = ['.php', '.pph']
+        ext = ['.wsf']
         super().__init__(filename, name, exploit_type, title, platform, exploit, ext)
 
     def parse_infos(self):
@@ -27,6 +29,14 @@ class PHPScraper(Scraper):
             vversion = []
             name = []
             targets = []
+
+            name.extend(re.findall('Exploit [Tt]itle\s*:\s*(.*)', self.exploit))
+            vversion.extend(re.findall('Version\s*:\s*(.*)', self.exploit))
+            description.extend(re.findall('Exploitation:\n=+\n\n([\s\S]*?)\n', self.exploit))
+            refs.extend(re.findall('(C[VW]E)(?:\s*[-:]\s*)?((?:\d+)?-\d+)', self.exploit))
+            refs.extend(re.findall('References:\n?(.*)', self.exploit))
+            refs.extend(re.findall('Software [lL]ink\s*:\s*(.*)', self.exploit))
+            targets.extend(re.findall('Tested\s*(?:on|with)\s*:\s*(.*)', self.exploit))
 
             description = ' -- '.join(description)
             vversion = ' -- '.join(vversion)
@@ -70,4 +80,12 @@ class PHPScraper(Scraper):
         self.parsed_col.update({"filename": self.filename}, parsed_obj, upsert=True)
 
     def parse_url(self):
-        pass
+        URIs = []
+
+        try:
+            URIs.extend(regex.findall('[\"\']((?:https?:\/\/.*?)*?\.*?\/?\w*?\/[\S]*?)[\"\'](?:.*\+.*[\"\'](.*?)[\"])?',
+                                      self.exploit, timeout=5))
+        except TimeoutError as e:
+            print(e)
+
+        return self.extract_url(URIs)

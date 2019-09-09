@@ -82,7 +82,6 @@ class BRL_CADScraper(Scraper):
     def parse_url(self):
         URIs = []
 
-        self.exploit = re.sub('^[Ss]ource\s*:\s*(.*)\s+(.*)\s+(.*)\s+([^#]+?)\n', '', self.exploit, flags=re.M)
         try:
             URIs.extend(regex.findall('[\"\']((?:https?:\/\/.*?)*?\.*?\/?\w*?\/[\S]*?)[\"\'](?:.*\+.*[\"\'](.*?)[\"])?',
                                       self.exploit, timeout=5))
