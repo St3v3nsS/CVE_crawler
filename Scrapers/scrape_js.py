@@ -16,31 +16,19 @@ class JSParser(Scraper):
 
         print(self.filename)
 
-        query = self.parsed_col.find_one({"filename": self.filename})
-        if query is not None:
-            parsed = query['parsed']
-            if parsed:
-                return
+        if self.is_parsed():
+            return
 
         error = False
         parsed_file = True
         try:
-
-            title = re.sub('\s', '_', self.title)
-            title = re.sub('\.', '@', title)
-            title = self.name + '_' + title
+            title = self.construct_title()
 
             refs = []
             description = []
             vversion = []
             name = []
-            new_comments = []
             targets = []
-
-            file = open('/home/john/Desktop/js', 'a+')
-
-            if self.collection.find_one({"filename": self.name}) is not None:
-                title = self.collection.find_one({"filename": self.name})['cve']
 
             # Even if the name of exploit exists, I need it for finding other stuffs, but it will not be included in the json
 
@@ -131,7 +119,7 @@ class JSParser(Scraper):
                 "EDB-ID": self.name,
                 "Vulnerability": title,
                 "Name": self.title,
-                "Description": name + ' -- ' + description + ' -- ' + vversion + ' -- ' + targets,
+                "Description": name + ' ' + description + ' ' + vversion + ' ' + targets,
                 "Platform": self.platform,
                 "References": references,
                 "Type": self.exploit_type,
@@ -154,7 +142,7 @@ class JSParser(Scraper):
 
     def parse_url(self):
         URIs = []
-        URI = []
+
         try:
             URIs.extend(regex.findall('(https?://.*\/.*?)[\)\"]', self.exploit, timeout=5))
         except TimeoutError as e:
@@ -183,35 +171,4 @@ class JSParser(Scraper):
         except TimeoutError as e:
             print(e)
 
-        header_values = ['application', 'image', 'audio', 'messages', 'video', 'text', 'multipart', 'firefox', 'chrome',
-                         'chromium']
-
-        for uri in URIs:
-            if isinstance(uri, tuple):
-                uri = uri[0] + uri[1]
-
-            try:
-                uri = regex.sub('[\"\']\s*\+.*[\"\']', 'www.example.com/', uri, timeout=5)
-            except TimeoutError as e:
-                print(e)
-
-            if ',' in uri or '/bin/' in uri or '/' == uri or '==' in uri or 'cmd' in uri or '/div>' in uri:
-                continue
-            new_uris = uri.strip('/').split('/')
-            if len(list(set(uri.strip('/').split('/')))) == 1 and len(new_uris) > 1:
-                continue
-            if len(new_uris) == 2:
-                if new_uris[0].lower() not in header_values:
-                    URI.append(uri)
-            elif len(new_uris) == 1 and not uri.startswith('/') and '.' not in uri:
-                continue
-            else:
-                try:
-                    if regex.findall('\w*@\w*(?:\.\w*)*', uri, timeout=5):
-                        continue
-                    else:
-                        URI.append(uri)
-                except TimeoutError as e:
-                    print(e)
-
-        return URI
+        return self.extract_url(URIs)

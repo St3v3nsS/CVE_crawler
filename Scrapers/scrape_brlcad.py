@@ -1,15 +1,15 @@
 import datetime
 import re
-import regex
+import time
 
+import regex
 from .scraper import Scraper
 
 
-class TTScraper(Scraper):
+class BRL_CADScraper(Scraper):
     def __init__(self, filename=None, name=None, exploit_type=None, title=None, platform=None, exploit=None):
-        ext = ['.tt']
+        ext = ['.g']
         super().__init__(filename, name, exploit_type, title, platform, exploit, ext)
-        self.refs = None
 
     def parse_infos(self):
         cves = self.db['cves']
@@ -30,29 +30,24 @@ class TTScraper(Scraper):
             name = []
             targets = []
 
-            self.exploit = re.sub('#', '', self.exploit)
-
-            values = re.findall('(?:\=\=)+\s+([\s\S]*?)\s+(?:\=\=)+', self.exploit)
-
-            if values:
-                name.extend([values[0]])
-
-            refs.extend(re.findall('(https?:.*?)\s+', self.exploit))
+            name.extend(re.findall('Exploit [Tt]itle\s*:\s*(.*)', self.exploit))
+            vversion.extend(re.findall('Version\s*:\s*(.*)', self.exploit))
+            description.extend(re.findall('Exploitation:\n=+\n\n([\s\S]*?)\n', self.exploit))
+            refs.extend(re.findall('(C[VW]E)(?:\s*[-:]\s*)?((?:\d+)?-\d+)', self.exploit))
+            refs.extend(re.findall('References:\n?(.*)', self.exploit))
+            refs.extend(re.findall('Software [lL]ink\s*:\s*(.*)', self.exploit))
+            targets.extend(re.findall('Tested\s*(?:on|with)\s*:\s*(.*)', self.exploit))
 
             description = ' -- '.join(description)
             vversion = ' -- '.join(vversion)
             targets = ' -- '.join(targets)
             name = ' -- '.join(name)
 
-            self.refs = list(set(refs))
-
             references = []
             for ref in list(set(refs)):
                 if isinstance(ref, tuple):
                     references.append([ref[0], ref[1]])
                 else:
-                    if 'example' in ref or 'sitename' in ref:
-                        continue
                     references.append(['URL', ref])
 
             URI = self.parse_url()
@@ -87,20 +82,10 @@ class TTScraper(Scraper):
     def parse_url(self):
         URIs = []
 
-        try:
-            URIs.extend(regex.findall('(https?:\/\/.*\/.*?)\s+', self.exploit, timeout=5))
-        except TimeoutError as e:
-            print(e)
+        self.exploit = re.sub('^[Ss]ource\s*:\s*(.*)\s+(.*)\s+(.*)\s+([^#]+?)\n', '', self.exploit, flags=re.M)
         try:
             URIs.extend(regex.findall('[\"\']((?:https?:\/\/.*?)*?\.*?\/?\w*?\/[\S]*?)[\"\'](?:.*\+.*[\"\'](.*?)[\"])?',
                                       self.exploit, timeout=5))
-        except TimeoutError as e:
-            print(e)
-        try:
-            urls = regex.findall('(?:POST|GET|PUT|PATCH)\s*(.*?)\s*H', self.exploit, timeout=5)
-            for uri in urls:
-                if not uri.startswith('/'):
-                    URIs.append('/' + uri)
         except TimeoutError as e:
             print(e)
 

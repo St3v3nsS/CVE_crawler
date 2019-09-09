@@ -2,7 +2,7 @@ import datetime
 import re
 import time
 import regex
-
+from urllib.parse import unquote
 from .scraper import Scraper
 
 
@@ -16,19 +16,13 @@ class PythonScraper(Scraper):
 
         print(self.filename)
 
-        query = self.parsed_col.find_one({"filename": self.filename})
-        if query is not None:
-            parsed = query['parsed']
-            if parsed:
-                return
+        if self.is_parsed():
+            return
 
         error = False
         parsed_file = True
         try:
-
-            title = re.sub('\s', '_', self.title)
-            title = re.sub('\.', '@', title)
-            title = self.name + '_' + title
+            title = self.construct_title()
 
             refs = []
             description = []
@@ -36,11 +30,11 @@ class PythonScraper(Scraper):
             name = []
             targets = []
 
-            if self.collection.find_one({"filename": self.name}) is not None:
-                title = self.collection.find_one({"filename": self.name})['cve']
-
-            comments = re.findall('^#(.*?)import', self.exploit, flags=re.M | re.S)
+            comments = re.findall('^#(.*?)(?:import)', self.exploit, flags=re.M | re.S)
+            if not comments:
+                comments = re.findall('^#(.*?)\n\n', self.exploit, flags=re.M | re.S)
             comments.extend(re.findall("['\"]{3}(.*?)['\"]{3}", self.exploit, flags=re.M | re.S))
+            comments.extend(re.findall('def\s*usage(.*?)\n\n', self.exploit, flags=re.M | re.S))
 
             source_comment = re.findall('^\s*[Ss]ource\s*:\s*(.*)\s+(.*)\s+(.*)\s+([^#]+?)\n', self.exploit)
             if source_comment:
@@ -86,6 +80,9 @@ class PythonScraper(Scraper):
                 description.extend(re.findall('description=[\'\"](.*)[\'\"]', self.exploit))
             if not refs:
                 refs.extend(re.findall('(C[VW]E)(?:\s*[-:]\s*)?((?:\d+)?-\d+)', self.exploit))
+                list_sources = re.findall('References:?\n(.*)\s*', self.exploit, flags=re.S)
+                if list_sources:
+                    refs.extend(re.findall('(https?:\/\/.*)', list_sources[0]))
 
             description = ' -- '.join(description)
             vversion = ' -- '.join(vversion)
@@ -114,7 +111,7 @@ class PythonScraper(Scraper):
                 "EDB-ID": self.name,
                 "Vulnerability": title,
                 "Name": self.title,
-                "Description": name + ' -- ' + description + ' -- ' + vversion + ' -- ' + targets,
+                "Description": name + ' ' + description + ' ' + vversion + ' ' + targets,
                 "Platform": self.platform,
                 "References": references,
                 "Type": self.exploit_type,
@@ -139,7 +136,7 @@ class PythonScraper(Scraper):
 
     def parse_url(self):
         URIs = []
-        URI = []
+
         try:
             URIs.extend(regex.findall('(https?://.*\/.*?)[\)\"]', self.exploit, timeout=5))
         except TimeoutError as e:
@@ -158,45 +155,38 @@ class PythonScraper(Scraper):
         except TimeoutError as e:
             print(e)
         try:
-            construct_uri = regex.findall('action=\s*.*?document.*?\+(.*?)\+(.*?)\+(.*?);', self.exploit, timeout=5)
-            for uri_to_construct in construct_uri:
-                value1 = re.findall(re.escape(uri_to_construct[0]), self.exploit)[0]
-                value2 = re.findall(re.escape(uri_to_construct[1]), self.exploit)[0]
-                value3 = re.findall(re.escape(uri_to_construct[2]), self.exploit)[0]
-
-                URIs.extend([value1 + value2 + value3])
+            array = regex.findall('paths?\s*=\s*\[?(.*)\]?', self.exploit, timeout=5)
+            if array:
+                array = array[0]
+                if ',' in array:
+                    array = array.split(',')
+                    URIs.extend(['/' + elem.lstrip('/') for elem in array])
+                else:
+                    URIs.extend(['/'+array])
+        except TimeoutError as e:
+            print(e)
+        try:
+            URIs.extend(regex.findall('(?:req|resp)\s*=\s*.*[\"\'](.*?)[\"\']', self.exploit, timeout=5))
+        except TimeoutError as e:
+            print(e)
+        try:
+            urls = regex.findall('request\(.*?,.*?\s*[\'\"](.*?)[\"\']', self.exploit, timeout=5)
+            URIs.extend([url.lstrip('%s') for url in urls])
+        except TimeoutError as e:
+            print(e)
+        try:
+            URIs.extend(regex.findall('(?:Request|urlopen)\(.*?[\'\"](.*?)[\'\"].*?\)', self.exploit, timeout=5))
+        except TimeoutError as e:
+            print(e)
+        try:
+            URIs.extend(regex.findall('requests?\..*\(.*?\+.*?[\'\"](.*?)[\"\'].*\)?', self.exploit, timeout=5))
+        except TimeoutError as e:
+            print(e)
+        try:
+            urls = regex.findall('(?:GET|POST|PUT|PATCH)\s*(.*?)\s*\?', self.exploit, timeout=5)
+            if urls:
+                URIs.extend([unquote(url) for url in urls])
         except TimeoutError as e:
             print(e)
 
-        header_values = ['application', 'image', 'audio', 'messages', 'video', 'text', 'multipart', 'firefox', 'chrome',
-                         'chromium']
-
-        for uri in URIs:
-            if isinstance(uri, tuple):
-                uri = uri[0] + uri[1]
-
-            try:
-                uri = regex.sub('[\"\']\s*\+.*[\"\']', 'www.example.com/', uri, timeout=5)
-            except TimeoutError as e:
-                print(e)
-
-            if ',' in uri or '/bin/' in uri or '/' == uri or '==' in uri or 'cmd' in uri or '/div>' in uri:
-                continue
-            new_uris = uri.strip('/').split('/')
-            if len(list(set(uri.strip('/').split('/')))) == 1 and len(new_uris) > 1:
-                continue
-            if len(new_uris) == 2:
-                if new_uris[0].lower() not in header_values:
-                    URI.append(uri)
-            elif len(new_uris) == 1 and not uri.startswith('/') and '.' not in uri:
-                continue
-            else:
-                try:
-                    if regex.findall('\w*@\w*(?:\.\w*)*', uri, timeout=5):
-                        continue
-                    else:
-                        URI.append(uri)
-                except TimeoutError as e:
-                    print(e)
-
-        return URI
+        return self.extract_url(URIs)

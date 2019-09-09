@@ -14,28 +14,19 @@ class MDScraper(Scraper):
 
         print(self.filename)
 
-        query = self.parsed_col.find_one({"filename": self.filename})
-        if query is not None:
-            parsed = query['parsed']
-            if parsed:
-                return
+        if self.is_parsed():
+            return
 
         error = False
         parsed_file = True
         try:
-
-            title = re.sub('\s', '_', self.title)
-            title = re.sub('\.', '@', title)
-            title = self.name + '_' + title
+            title = self.construct_title()
 
             refs = []
             description = []
             vversion = []
             name = []
             targets = []
-
-            if self.collection.find_one({"filename": self.name}) is not None:
-                title = self.collection.find_one({"filename": self.name})['cve']
 
             description = ' -- '.join(description)
             vversion = ' -- '.join(vversion)
@@ -55,7 +46,7 @@ class MDScraper(Scraper):
                 "EDB-ID": self.name,
                 "Vulnerability": title,
                 "Name": self.title,
-                "Description": name + ' -- ' + description + ' -- ' + vversion + ' -- ' + targets,
+                "Description": name + ' ' + description + ' ' + vversion + ' ' + targets,
                 "Platform": self.platform,
                 "References": references,
                 "Type": self.exploit_type,
@@ -79,4 +70,4 @@ class MDScraper(Scraper):
         self.parsed_col.update({"filename": self.filename}, parsed_obj, upsert=True)
 
     def parse_url(self):
-        pass
+        return self.extract_url(URIs)

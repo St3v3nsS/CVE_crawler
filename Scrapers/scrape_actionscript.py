@@ -1,15 +1,13 @@
 import datetime
 import re
 import regex
-
 from .scraper import Scraper
 
 
-class TTScraper(Scraper):
+class ActionScriptScraper(Scraper):
     def __init__(self, filename=None, name=None, exploit_type=None, title=None, platform=None, exploit=None):
-        ext = ['.tt']
+        ext = ['.as']
         super().__init__(filename, name, exploit_type, title, platform, exploit, ext)
-        self.refs = None
 
     def parse_infos(self):
         cves = self.db['cves']
@@ -30,32 +28,36 @@ class TTScraper(Scraper):
             name = []
             targets = []
 
-            self.exploit = re.sub('#', '', self.exploit)
+            # The comments
+            source_at_begin = re.findall('^[Ss]ource\s*:\s*(.*)\s+(.*)\s+(.*)\s+([^#]+?)\n', self.exploit,
+                                         flags=re.M)  # For comments like source .. \n text \n text
+            if source_at_begin:
+                source_at_begin = source_at_begin[0]
+                refs.extend([source_at_begin[0]])
+                name.extend([source_at_begin[1]])
+                if ('###' not in source_at_begin[2] or '===' not in source_at_begin[2]):
+                    description.extend([source_at_begin[2]])
+                if len(source_at_begin[1]) > 2 and 'package' not in source_at_begin[3]:
+                    targets.extend([source_at_begin[3]])
 
-            values = re.findall('(?:\=\=)+\s+([\s\S]*?)\s+(?:\=\=)+', self.exploit)
-
-            if values:
-                name.extend([values[0]])
-
-            refs.extend(re.findall('(https?:.*?)\s+', self.exploit))
+            refs.extend(re.findall('(C[VW]E)(?:\s*[-:]\s*)?((?:\d+)?-\d+)', self.exploit))
 
             description = ' -- '.join(description)
             vversion = ' -- '.join(vversion)
             targets = ' -- '.join(targets)
             name = ' -- '.join(name)
 
-            self.refs = list(set(refs))
-
             references = []
             for ref in list(set(refs)):
                 if isinstance(ref, tuple):
                     references.append([ref[0], ref[1]])
                 else:
-                    if 'example' in ref or 'sitename' in ref:
-                        continue
                     references.append(['URL', ref])
 
             URI = self.parse_url()
+
+            if old_title != title:
+                name = name + ' ' + old_title
 
             myDict = {
                 "EDB-ID": self.name,
@@ -88,19 +90,8 @@ class TTScraper(Scraper):
         URIs = []
 
         try:
-            URIs.extend(regex.findall('(https?:\/\/.*\/.*?)\s+', self.exploit, timeout=5))
-        except TimeoutError as e:
-            print(e)
-        try:
             URIs.extend(regex.findall('[\"\']((?:https?:\/\/.*?)*?\.*?\/?\w*?\/[\S]*?)[\"\'](?:.*\+.*[\"\'](.*?)[\"])?',
                                       self.exploit, timeout=5))
-        except TimeoutError as e:
-            print(e)
-        try:
-            urls = regex.findall('(?:POST|GET|PUT|PATCH)\s*(.*?)\s*H', self.exploit, timeout=5)
-            for uri in urls:
-                if not uri.startswith('/'):
-                    URIs.append('/' + uri)
         except TimeoutError as e:
             print(e)
 
