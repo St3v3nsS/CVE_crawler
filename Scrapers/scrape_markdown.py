@@ -1,6 +1,8 @@
 import datetime
 import re
+import time
 
+import regex
 from .scraper import Scraper
 
 
@@ -27,6 +29,16 @@ class MDScraper(Scraper):
             vversion = []
             name = []
             targets = []
+
+            name.extend(re.findall('Exploit [tT]itle\s*:\s*(.*)', self.exploit))
+            vversion.extend(re.findall('Versions?\s*:?\s*(.*)', self.exploit))
+            description.extend(re.findall('## Vulnerability [sS]ummary(.*?)##', self.exploit, flags=re.S | re.M))
+            refs.extend(re.findall('(C[VW]E)(?:\s*[-:]\s*)?((?:\d+)?-\d+)', self.exploit))
+            refs.extend(re.findall('References?:\n?(.*)', self.exploit))
+            refs.extend(re.findall('Software [lL]ink\s*:\s*(.*)', self.exploit))
+            refs.extend(re.findall('(https?:.*)\s*', self.exploit))
+            refs.extend(re.findall('[sS]ource\s*:\s*(.*)', self.exploit))
+            targets.extend(re.findall('[Tt]ested\s*(?:on|with)\s*:?\s*(.*)', self.exploit))
 
             description = ' -- '.join(description)
             vversion = ' -- '.join(vversion)
@@ -70,4 +82,24 @@ class MDScraper(Scraper):
         self.parsed_col.update({"filename": self.filename}, parsed_obj, upsert=True)
 
     def parse_url(self):
+        URIs = []
+
+        try:
+            URIs.extend(regex.findall('[\"\']((?:https?:\/\/.*?)*?\.*?\/?\w*?\/[\S]*?)[\"\'](?:.*\+.*[\"\'](.*?)[\"])?',
+                                      self.exploit, timeout=5))
+        except TimeoutError as e:
+            print(e)
+        try:
+            URIs.extend(regex.findall('(?:GET|POST|PUT|PATCH)\s*(.*?)\s*[H"]', self.exploit, timeout=5))
+        except TimeoutError as e:
+            print(e)
+        try:
+            URIs.extend(regex.findall('(\/[\/.a-zA-Z0-9-]+)', self.exploit, timeout=5))
+        except TimeoutError as e:
+            print(e)
+        try:
+            URIs.extend(regex.findall('http:\/\/.*?(\/.*?)[\s\\)\]"]', self.exploit, timeout=5))
+        except TimeoutError as e:
+            print(e)
+
         return self.extract_url(URIs)

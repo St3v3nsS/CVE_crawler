@@ -28,6 +28,7 @@ class JSParser(Scraper):
             description = []
             vversion = []
             name = []
+            new_comments = []
             targets = []
 
             # Even if the name of exploit exists, I need it for finding other stuffs, but it will not be included in the json
@@ -104,16 +105,6 @@ class JSParser(Scraper):
                     references.append(['URL', ref])
 
             URI = self.parse_url()
-
-            file.write(self.filename)
-            file.write('Refs:   ' + str(references) + '\n')
-            file.write('Desc:   ' + description + '\n')
-            file.write('Vers:   ' + vversion + '\n')
-            file.write('Name:   ' + self.title + '\n')
-            file.write('Targ:   ' + targets + '\n')
-            file.write('URIS:   ' + str(list(set(URI))) + '\n')
-            file.write('Titl:   ' + title + '\n')
-            file.write('\n')
 
             myDict = {
                 "EDB-ID": self.name,

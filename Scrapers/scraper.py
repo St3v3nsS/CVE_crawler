@@ -1,4 +1,8 @@
+import time
+
 from pymongo import MongoClient
+from urllib.parse import unquote
+from urllib.parse import unquote_plus
 import regex
 import re
 
@@ -32,14 +36,32 @@ class Scraper(object):
         header_values = ['application', 'image', 'audio', 'messages', 'video', 'text', 'multipart', 'firefox', 'chrome',
                          'chromium']
 
+        bad_values = ['[', '\\r', '&', '*', ';', ')', ']', '(', '}', '{', '+', '=', '>', '<', '\\', ',', '/bin/', 'cmd',
+                      '/div', '"', 'pre', 'target', 'path', 'HTTP', 'sys.arg', 'argv']
+
+        bad_values_equals = ['c', 'for', 'or', 'ind', 'IP', 'bin', 'ksh', 'TCP/IP', '', 'html', 'jpg', 'image', 'txt',
+                      'xml', 'png', 'form', 'webp', 'json', 'script', 'body', 'p', 'h1', 'h2', 'a', 'form', 'iframe']
+
         for uri in URIs:
+
             if isinstance(uri, tuple):
                 uri = uri[0] + uri[1]
 
             try:
+                uri = regex.sub('"\s*\\\\\\n\s*"', '', uri, timeout=5)
+            except TimeoutError as e:
+                print(e)
+            try:
+                uri = regex.sub('%%', '%', uri, timeout=5)
+            except TimeoutError as e:
+                print(e)
+            try:
                 uri = regex.sub('[\"\']\s*\+.*[\"\']', '', uri, timeout=5)
             except TimeoutError as e:
                 print(e)
+
+            uri = unquote(uri)
+            uri = unquote_plus(uri)
 
             if ' ' in uri:
                 URIs.extend(re.split('\s+', uri))
@@ -49,10 +71,37 @@ class Scraper(object):
             except TimeoutError as e:
                 print(e)
 
-            if ',' in uri or '/bin/' in uri or '/' == uri or '==' in uri or 'cmd' in uri or '/div>' in uri or '/c' == uri:
+            path = re.findall('(.*?)\?', uri)
+            if path:
+                uri = path[0]
+
+            stopped = False
+            for bad in bad_values:
+                if bad in uri:
+                    stopped = True
+                    break
+
+            if stopped:
                 continue
-            if 'HTTP' in uri or 'sys.arg' in uri or 'path' in uri or 'target' in uri or 'pre' in uri or '"' in uri or '</' in uri:
+
+            if uri.endswith('.'):
                 continue
+            if '/%s' in uri:
+                uri = re.sub('/%s', '/public', uri)
+            elif '%s' in uri:
+                uri = re.sub('%s', 'public/', uri)
+
+            stopped = False
+            for bad in bad_values_equals:
+                if bad == uri.lstrip('/'):
+                    stopped = True
+            if stopped:
+                continue
+
+            uri = re.sub('//', '/', uri)
+
+            if uri == '/':
+                uri = '/public/'
 
             new_uris = uri.strip('/').split('/')
             if len(list(set(uri.strip('/').split('/')))) == 1 and len(new_uris) > 1:
@@ -61,6 +110,8 @@ class Scraper(object):
                 if new_uris[0].lower() not in header_values:
                     URI.append('/' + uri.lstrip('/'))
             elif len(new_uris) == 1 and not uri.startswith('/') and '.' not in uri:
+                continue
+            elif re.findall('\d\.\d', uri):
                 continue
             else:
                 try:

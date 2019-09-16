@@ -6,7 +6,7 @@ import regex
 from .scraper import Scraper
 
 
-class ActionScriptScraper(Scraper):
+class NmapScriptScraper(Scraper):
     def __init__(self, filename=None, name=None, exploit_type=None, title=None, platform=None, exploit=None):
         ext = ['.nse']
         super().__init__(filename, name, exploit_type, title, platform, exploit, ext)

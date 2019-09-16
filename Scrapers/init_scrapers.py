@@ -19,6 +19,8 @@ def add_scrapers():
             for ext in cls().get_ext():
                 scrapers[ext] = cls
 
+    with open('/home/john/Desktop/scrapers', 'w+') as f:
+        f.write(str(scrapers))
     return scrapers
 
 
