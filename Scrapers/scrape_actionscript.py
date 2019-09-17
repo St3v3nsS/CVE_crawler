@@ -56,14 +56,11 @@ class ActionScriptScraper(Scraper):
 
             URI = self.parse_url()
 
-            if old_title != title:
-                name = name + ' ' + old_title
-
             myDict = {
                 "EDB-ID": self.name,
                 "Vulnerability": title,
                 "Name": self.title,
-                "Description": name + ' ' + description + ' ' + vversion + ' ' + targets,
+                "Description": name + ' ' + description + ' Version: ' + vversion + ' Tested on: ' + targets,
                 "Platform": self.platform,
                 "References": references,
                 "Type": self.exploit_type,

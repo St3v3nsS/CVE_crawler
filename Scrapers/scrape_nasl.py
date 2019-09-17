@@ -6,15 +6,18 @@ import regex
 from .scraper import Scraper
 
 
-class FortranScraper(Scraper):
+class NaslScraper(Scraper):
     def __init__(self, filename=None, name=None, exploit_type=None, title=None, platform=None, exploit=None):
-        ext = ['.f']
+        ext = ['.nasl']
         super().__init__(filename, name, exploit_type, title, platform, exploit, ext)
 
     def parse_infos(self):
         cves = self.db['cves']
 
         print(self.filename)
+
+        with open('/home/john/Desktop/Nessus', 'a+') as f:
+            f.write(self.filename + '\n')
 
         if self.is_parsed():
             return
@@ -30,23 +33,18 @@ class FortranScraper(Scraper):
             name = []
             targets = []
 
-            # The comments
-            source_at_begin = re.findall('^[Ss]ource\s*:\s*(.*)\s+(.*)\s+(.*)\s+([^#]+?)\n', self.exploit,
+            source_at_begin = re.findall('^(?:\/\/\s+)?[Ss]ource\s*:\s*(.*)\s+(.*)\s+(.*)\s+([^#]+?)\n', self.exploit,
                                          flags=re.M)  # For comments like source .. \n text \n text
             if source_at_begin:
                 source_at_begin = source_at_begin[0]
                 refs.extend([source_at_begin[0]])
                 name.extend([source_at_begin[1]])
-                if ('###' not in source_at_begin[2] or '===' not in source_at_begin[2]):
+                if ('###' not in source_at_begin[2] or '#' not in source_at_begin[2]):
                     description.extend([source_at_begin[2]])
-                if len(source_at_begin[1]) > 2 and 'PROGRAM' not in source_at_begin[3]:
+                if len(source_at_begin[1]) > 2 and '#' not in source_at_begin[3]:
                     targets.extend([source_at_begin[3]])
 
-            name.extend(re.findall('Exploit [Tt]itle\s*:\s*(.*)', self.exploit))
-            vversion.extend(re.findall('Version\s*:\s*(.*)', self.exploit))
-
             refs.extend(re.findall('(C[VW]E)(?:\s*[-:]\s*)?((?:\d+)?-\d+)', self.exploit))
-            refs.extend(re.findall('References:\n?(.*)', self.exploit))
 
             description = ' -- '.join(description)
             vversion = ' -- '.join(vversion)
@@ -97,9 +95,6 @@ class FortranScraper(Scraper):
                                       self.exploit, timeout=5))
         except TimeoutError as e:
             print(e)
-        try:
-            URIs.extend(regex.findall("OPEN\(.*'(.*)'\)", self.exploit, timeout=5))
-        except TimeoutError as e:
-            print(e)
+        URIs.extend(re.findall('(?:GET|POST|PUT|PATCH|HEAD)\s*(.*?)\s*HTTP', self.exploit))
 
         return self.extract_url(URIs)

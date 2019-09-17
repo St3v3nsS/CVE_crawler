@@ -28,6 +28,8 @@ class HTMLParser(Scraper):
             vversion = []
             name = []
             targets = []
+            component = []
+            new_comments = []
 
             self.exploit = re.sub('&\s*n\s*b\s*s\s*p\s*;', '', self.exploit)
             file = open('/home/john/Desktop/html', 'a+')
@@ -155,22 +157,11 @@ class HTMLParser(Scraper):
 
             URI = self.parse_url()
 
-            file.write(self.filename)
-            file.write('Refs:   ' + str(references) + '\n')
-            file.write('Desc:   ' + description + '\n')
-            file.write('Comp:   ' + component + '\n')
-            file.write('Vers:   ' + vversion + '\n')
-            file.write('Name:   ' + self.title + '\n')
-            file.write('Targ:   ' + targets + '\n')
-            file.write('URIS:   ' + str(list(set(URI))) + '\n')
-            file.write('Titl:   ' + title + '\n')
-            file.write('\n')
-
             myDict = {
                 "EDB-ID": self.name,
                 "Vulnerability": title,
                 "Name": self.title,
-                "Description": name + ' ' + description + ' ' + vversion + ' ' + targets,
+                "Description": name + ' ' + description + component + ' Version: ' + vversion + ' Tested on: ' + targets,
                 "Platform": self.platform,
                 "References": references,
                 "Type": self.exploit_type,
@@ -194,23 +185,22 @@ class HTMLParser(Scraper):
     
     def parse_url(self):
         URIs = []
-        URI = []
         try:
             URIs.extend(regex.findall('value=[\"\']?(?:https?://)?([^<>]+?)[\"\'\s]', self.exploit, timeout=5))
         except TimeoutError as e:
-            print (e)
+            print('uri1 ' + e)
         try:    
             URIs.extend(regex.findall('[\"\']((?:https?:\/\/.*?)*?\.*?\/?\w*?\/[\S]*?)[\"\'](?:.*\+.*[\"\'](.*?)[\"])?', self.exploit, timeout=5))
         except TimeoutError as e:
-            print (e)
+            print('uri2 ' + e)
         try:    
             URIs.extend(regex.findall('action=[\"\'](?:https?://)?([^>]*?)[\"\']', self.exploit, timeout=5, flags=re.M|re.S))
         except TimeoutError as e:
-            print (e)
+            print('uri3 ' + e)
         try:    
             URIs.extend(regex.findall('^(?:GET|POST|PUT|PATCH)\s*(.*?)\s*H', self.exploit, timeout=5, flags=re.M))
         except TimeoutError as e:
-            print (e)
+            print('uri4 ' + e)
         try:
             construct_uri = regex.findall('action=\s*.*?document.*?\+(.*?)\+(.*?)\+(.*?);', self.exploit, timeout=5 )
             for uri_to_construct in construct_uri:
@@ -220,38 +210,8 @@ class HTMLParser(Scraper):
 
                 URIs.extend([value1+value2+value3])        
         except TimeoutError as e:
-            print(e)
-        
-        header_values = ['application', 'image', 'audio', 'messages', 'video', 'text', 'multipart', 'firefox', 'chrome', 'chromium']
+            print('uri5 ' + e)
 
-        for uri in URIs:
-            if isinstance(uri, tuple):
-                uri = uri[0] + uri[1]
-
-            try:
-                uri = regex.sub('[\"\']\s*\+.*[\"\']', 'www.example.com/', uri, timeout=5)
-            except TimeoutError as e:
-                print(e)
-
-            if ',' in uri or '/bin/' in uri or '/' == uri or '==' in uri or 'cmd' in uri or '/div>' in uri:
-                continue
-            new_uris = uri.strip('/').split('/')
-            if len(list(set(uri.strip('/').split('/')))) == 1 and len(new_uris) > 1:
-                continue
-            if len(new_uris) == 2:
-                if new_uris[0].lower() not in header_values:
-                    URI.append(uri)
-            elif len(new_uris) == 1 and not uri.startswith('/') and '.' not in uri:
-                continue
-            else: 
-                try:
-                    if regex.findall('\w*@\w*(?:\.\w*)*', uri, timeout=5):
-                        continue
-                    else:
-                        URI.append(uri)
-                except TimeoutError as e:
-                    print(e)
-
-        return URI
+        return self.extract_url(URIs)
 
 

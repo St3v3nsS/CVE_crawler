@@ -33,10 +33,10 @@ class MDScraper(Scraper):
             name.extend(re.findall('Exploit [tT]itle\s*:\s*(.*)', self.exploit))
             vversion.extend(re.findall('Versions?\s*:?\s*(.*)', self.exploit))
             description.extend(re.findall('## Vulnerability [sS]ummary(.*?)##', self.exploit, flags=re.S | re.M))
-            refs.extend(re.findall('(C[VW]E)(?:\s*[-:]\s*)?((?:\d+)?-\d+)', self.exploit))
-            refs.extend(re.findall('References?:\n?(.*)', self.exploit))
+            refs.extend(re.findall('(C[VW]E)(?:\s*[-:]?\s*)?((?:\d+)?-?\d+)', self.exploit))
+            refs.extend(re.findall('References?:?\n?\n?(.*)', self.exploit))
             refs.extend(re.findall('Software [lL]ink\s*:\s*(.*)', self.exploit))
-            refs.extend(re.findall('(https?:.*)\s*', self.exploit))
+            refs.extend(re.findall('Vendor Homepage\s*:\s*(.*)', self.exploit))
             refs.extend(re.findall('[sS]ource\s*:\s*(.*)', self.exploit))
             targets.extend(re.findall('[Tt]ested\s*(?:on|with)\s*:?\s*(.*)', self.exploit))
 
@@ -58,7 +58,7 @@ class MDScraper(Scraper):
                 "EDB-ID": self.name,
                 "Vulnerability": title,
                 "Name": self.title,
-                "Description": name + ' ' + description + ' ' + vversion + ' ' + targets,
+                "Description": name + ' ' + description + ' Version: ' + vversion + ' Tested on: ' + targets,
                 "Platform": self.platform,
                 "References": references,
                 "Type": self.exploit_type,
@@ -94,7 +94,7 @@ class MDScraper(Scraper):
         except TimeoutError as e:
             print(e)
         try:
-            URIs.extend(regex.findall('(\/[\/.a-zA-Z0-9-]+)', self.exploit, timeout=5))
+            URIs.extend(regex.findall('(\/[\/.a-zA-Z0-9-_]+)', self.exploit, timeout=5))
         except TimeoutError as e:
             print(e)
         try:

@@ -6,9 +6,9 @@ import regex
 from .scraper import Scraper
 
 
-class FortranScraper(Scraper):
+class SysScraper(Scraper):
     def __init__(self, filename=None, name=None, exploit_type=None, title=None, platform=None, exploit=None):
-        ext = ['.f']
+        ext = ['.sys']
         super().__init__(filename, name, exploit_type, title, platform, exploit, ext)
 
     def parse_infos(self):
@@ -26,32 +26,14 @@ class FortranScraper(Scraper):
 
             refs = []
             description = []
-            vversion = []
-            name = []
             targets = []
 
-            # The comments
-            source_at_begin = re.findall('^[Ss]ource\s*:\s*(.*)\s+(.*)\s+(.*)\s+([^#]+?)\n', self.exploit,
-                                         flags=re.M)  # For comments like source .. \n text \n text
-            if source_at_begin:
-                source_at_begin = source_at_begin[0]
-                refs.extend([source_at_begin[0]])
-                name.extend([source_at_begin[1]])
-                if ('###' not in source_at_begin[2] or '===' not in source_at_begin[2]):
-                    description.extend([source_at_begin[2]])
-                if len(source_at_begin[1]) > 2 and 'PROGRAM' not in source_at_begin[3]:
-                    targets.extend([source_at_begin[3]])
-
-            name.extend(re.findall('Exploit [Tt]itle\s*:\s*(.*)', self.exploit))
-            vversion.extend(re.findall('Version\s*:\s*(.*)', self.exploit))
-
-            refs.extend(re.findall('(C[VW]E)(?:\s*[-:]\s*)?((?:\d+)?-\d+)', self.exploit))
-            refs.extend(re.findall('References:\n?(.*)', self.exploit))
+            refs.extend(re.findall('(C[VW]E)(?:\s*[-:]?\s*)?((?:\d+)?-?\d+)', self.exploit))
+            refs.extend(re.findall('here:?\s*(.*?)\s', self.exploit))
+            targets.extend(re.findall('Tested on:\n(.*)\n', self.exploit))
 
             description = ' -- '.join(description)
-            vversion = ' -- '.join(vversion)
             targets = ' -- '.join(targets)
-            name = ' -- '.join(name)
 
             references = []
             for ref in list(set(refs)):
@@ -66,7 +48,7 @@ class FortranScraper(Scraper):
                 "EDB-ID": self.name,
                 "Vulnerability": title,
                 "Name": self.title,
-                "Description": name + ' ' + description + ' Version: ' + vversion + ' Tested on: ' + targets,
+                "Description": description + ' ' + ' Tested on: ' + targets,
                 "Platform": self.platform,
                 "References": references,
                 "Type": self.exploit_type,
@@ -90,7 +72,7 @@ class FortranScraper(Scraper):
         self.parsed_col.update({"filename": self.filename}, parsed_obj, upsert=True)
 
     def parse_url(self):
-        URIs = []
+        URIs = ['/']
 
         try:
             URIs.extend(regex.findall('[\"\']((?:https?:\/\/.*?)*?\.*?\/?\w*?\/[\S]*?)[\"\'](?:.*\+.*[\"\'](.*?)[\"])?',
@@ -98,8 +80,11 @@ class FortranScraper(Scraper):
         except TimeoutError as e:
             print(e)
         try:
-            URIs.extend(regex.findall("OPEN\(.*'(.*)'\)", self.exploit, timeout=5))
+            URIs.extend(regex.findall('(?:GET|POST|PUT|PATCH)\s*(.*?)\s*[H"]', self.exploit, timeout=5))
         except TimeoutError as e:
             print(e)
-
+        try:
+            URIs.extend(regex.findall('http:\/\/.*?(\/.*?)[\s\\)\]"\'<]', self.exploit, timeout=5))
+        except TimeoutError as e:
+            print(e)
         return self.extract_url(URIs)

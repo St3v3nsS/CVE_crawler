@@ -98,20 +98,11 @@ class PythonScraper(Scraper):
 
             URI = self.parse_url()
 
-            f = open('/home/john/Desktop/pythontxt', 'a+')
-            f.write(self.filename + '\n')
-            f.write("Name: " + name + '\n')
-            f.write("vers: " + vversion + '\n')
-            f.write("Targ: " + targets + '\n')
-            f.write("Refs: " + str(references) + '\n')
-            f.write("Desc: " + description + '\n')
-            f.write("URIs: " + str(URI) + '\n')
-
             myDict = {
                 "EDB-ID": self.name,
                 "Vulnerability": title,
                 "Name": self.title,
-                "Description": name + ' ' + description + ' ' + vversion + ' ' + targets,
+                "Description": name + ' ' + description + ' Version: ' + vversion + ' Tested on: ' + targets,
                 "Platform": self.platform,
                 "References": references,
                 "Type": self.exploit_type,

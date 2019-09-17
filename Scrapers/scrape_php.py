@@ -46,7 +46,7 @@ class PHPScraper(Scraper):
                 "EDB-ID": self.name,
                 "Vulnerability": title,
                 "Name": self.title,
-                "Description": name + ' ' + description + ' ' + vversion + ' ' + targets,
+                "Description": name + ' ' + description + ' Version: ' + vversion + ' Tested on: ' + targets,
                 "Platform": self.platform,
                 "References": references,
                 "Type": self.exploit_type,

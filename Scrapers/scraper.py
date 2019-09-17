@@ -37,10 +37,10 @@ class Scraper(object):
                          'chromium']
 
         bad_values = ['[', '\\r', '&', '*', ';', ')', ']', '(', '}', '{', '+', '=', '>', '<', '\\', ',', '/bin/', 'cmd',
-                      '/div', '"', 'pre', 'target', 'path', 'HTTP', 'sys.arg', 'argv']
+                      '/div', '"', 'pre', 'target', 'path', 'HTTP', 'sys.arg', 'argv', 'form', 'x-php']
 
         bad_values_equals = ['c', 'for', 'or', 'ind', 'IP', 'bin', 'ksh', 'TCP/IP', '', 'html', 'jpg', 'image', 'txt',
-                      'xml', 'png', 'form', 'webp', 'json', 'script', 'body', 'p', 'h1', 'h2', 'a', 'form', 'iframe']
+                      'xml', 'png', 'form', 'webp', 'json', 'script', 'body', 'p', 'h1', 'h2', 'a', 'form', 'iframe', 'xhtml']
 
         for uri in URIs:
 
@@ -50,15 +50,15 @@ class Scraper(object):
             try:
                 uri = regex.sub('"\s*\\\\\\n\s*"', '', uri, timeout=5)
             except TimeoutError as e:
-                print(e)
+                print('slash ' + e)
             try:
                 uri = regex.sub('%%', '%', uri, timeout=5)
             except TimeoutError as e:
-                print(e)
+                print('proc ' + e)
             try:
                 uri = regex.sub('[\"\']\s*\+.*[\"\']', '', uri, timeout=5)
             except TimeoutError as e:
-                print(e)
+                print('plus ' + e)
 
             uri = unquote(uri)
             uri = unquote_plus(uri)
@@ -69,7 +69,7 @@ class Scraper(object):
             try:
                 uri = regex.sub('(?:http:\/\/.*?\/?)(?=\/\S)', '', uri, timeout=5)
             except TimeoutError as e:
-                print(e)
+                print('Sub ' + e)
 
             path = re.findall('(.*?)\?', uri)
             if path:
@@ -98,7 +98,10 @@ class Scraper(object):
             if stopped:
                 continue
 
+            uri = re.sub('^\/\/.*?(\/.*)', '\g<1>', uri, flags=re.M)
             uri = re.sub('//', '/', uri)
+            if re.findall('(\/[\/0-9]+|\/mm\/yyyy)', uri):
+                continue
 
             if uri == '/':
                 uri = '/public/'
@@ -113,6 +116,8 @@ class Scraper(object):
                 continue
             elif re.findall('\d\.\d', uri):
                 continue
+            elif len(new_uris) == 1 and len(new_uris[0]) == 1:
+                continue
             else:
                 try:
                     if regex.findall('\w*@\w*(?:\.\w*)*', uri, timeout=5):
@@ -120,7 +125,8 @@ class Scraper(object):
                     else:
                         URI.append('/' + uri.lstrip('/'))
                 except TimeoutError as e:
-                    print(e)
+                    print('Some shiet ' + e)
+                    continue
 
         return URI
 
