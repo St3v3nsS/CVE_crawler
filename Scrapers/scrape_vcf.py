@@ -93,7 +93,7 @@ class VCFScraper(Scraper):
         except TimeoutError as e:
             print(e)
         try:
-            URIs.extend(regex.findall('(?:GET|POST|PUT|PATCH)\s*(.*?)\s*[H"]', self.exploit, timeout=5))
+            URIs.extend(regex.findall('(?:GET|POST|PUT|PATCH|HEAD)\s*(.*?)\s*[H"]', self.exploit, timeout=5))
         except TimeoutError as e:
             print(e)
         try:

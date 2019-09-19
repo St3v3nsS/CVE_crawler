@@ -189,7 +189,6 @@ class MetasploitParser(Scraper):
                 to_delete = ['References', 'Author', 'Disclosure']
                 values = [x in targets[0] for x in to_delete]
                 if len(set(values)) == 1 and values[0] == False:
-                    print(values)
                     nospace = re.sub('("Targets" : \[\s*\[?.*?[,\s]+.*\s*\]\s*\])', '', nospace)
                     nospace = re.sub('(,)\s*,', ' \g<1>', nospace)
                     nospace = re.sub('(,)\s*([}\]\)])', ' \g<2>', nospace)
@@ -250,7 +249,6 @@ class MetasploitParser(Scraper):
             nospace = re.sub(':?\s([^"]\w*::.*?[^"])([,}\]])', ': ""\g<2>',
                              nospace)  # Add quotation marks to ': MSF::CONSOLE' like values
             nospace = re.sub('("DECODERSTUB"\s*:\s*).*?\)', '\g<1>""', nospace)
-            print(nospace)
             myfile = json.dumps(nospace.replace('\\', '\\\\'))  # Escape the 'backslash' and dumps to JSON
 
             jsonf = json.loads(json.loads(myfile))
@@ -429,8 +427,6 @@ class MetasploitParser(Scraper):
                         word = word[0]
                     else:
                         continue
-                    print(word)
-                    print(register_options)
                     if word not in register_options:  # If the key is not in register_options, then the value is manually introduced in metasploit framework
                         continue
                     to_replace_arr = re.findall("'.*?{}',\s*\[(.*)\]".format(re.escape(word)), register_options)[
@@ -452,7 +448,6 @@ class MetasploitParser(Scraper):
                     if to_search:
                         urls = []
                         for i in range(len(to_search)):
-                            print(to_search[i])
                             urls.extend(re.findall(to_search[i] + '\s*=\s*[\'"]?(.*?)[\'"]\n',
                                                    self.exploit))  # Try to find that variable
                         if urls:

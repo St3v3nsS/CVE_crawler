@@ -32,8 +32,7 @@ class HTMLParser(Scraper):
             new_comments = []
 
             self.exploit = re.sub('&\s*n\s*b\s*s\s*p\s*;', '', self.exploit)
-            file = open('/home/john/Desktop/html', 'a+')
-            
+
             # Even if the name of exploit exists, I need it for finding other stuffs, but it will not be included in the json
 
             comments = re.findall('\/\*(.*?)\*\/', self.exploit, flags=re.S | re.M) # C-style comments
@@ -169,7 +168,6 @@ class HTMLParser(Scraper):
             }
 
             cves.update({"EDB-ID":self.name}, myDict, upsert=True)
-            print(myDict)
         except Exception as e:
             error = True
             parsed_file = False
@@ -198,7 +196,7 @@ class HTMLParser(Scraper):
         except TimeoutError as e:
             print('uri3 ' + e)
         try:    
-            URIs.extend(regex.findall('^(?:GET|POST|PUT|PATCH)\s*(.*?)\s*H', self.exploit, timeout=5, flags=re.M))
+            URIs.extend(regex.findall('^(?:GET|POST|PUT|PATCH|HEAD)\s*(.*?)\s*H', self.exploit, timeout=5, flags=re.M))
         except TimeoutError as e:
             print('uri4 ' + e)
         try:

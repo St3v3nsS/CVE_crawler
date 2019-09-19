@@ -1,5 +1,6 @@
 import re
 import os
+import time
 from pymongo import MongoClient
 from Scrapers.init_scrapers import add_scrapers
 
@@ -15,8 +16,9 @@ ce.create_index([("filename", 1)], unique=True)
 exploitdb = db['exploitdb']
 mitre_ref = db['cve_refs']
 
-file = open('/home/john/Desktop/ruby', 'a+')
 dictionary = {}
+
+start = time.time()
 
 for (root, dirs, files) in os.walk('/home/john/Desktop/exploitdb/exploitdb/exploits', topdown=True):
     for name in files:
@@ -48,7 +50,6 @@ for (root, dirs, files) in os.walk('/home/john/Desktop/exploitdb/exploitdb/explo
         if ext == '.rb':
             metasploit = re.findall('class Metasploit', exploit)  # Search for 'Metasploit' occurence
             if not metasploit:
-                file.write(filename + '\n')
                 continue
             ext = '.metasploit'
 
@@ -59,3 +60,5 @@ for (root, dirs, files) in os.walk('/home/john/Desktop/exploitdb/exploitdb/explo
 
         scraper = parser(filename, name1, exploit_type, description_edb, platform_edb, exploit)
         scraper.parse_infos()
+
+print(time.time() - start)

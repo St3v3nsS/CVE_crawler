@@ -5,6 +5,7 @@ from urllib.parse import unquote
 from urllib.parse import unquote_plus
 import regex
 import re
+import logging
 
 
 class Scraper(object):
@@ -20,6 +21,9 @@ class Scraper(object):
         self.collection = self.db['cve_refs']
         self.parsed_col = self.db['parse_exploit']
         self.ext = ext
+        logging.basicConfig(filename='app.log', filemode='a+', format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+
+        self.logger = logging.getLogger('Scraper')
 
     def parse_infos(self):
         pass
@@ -37,16 +41,23 @@ class Scraper(object):
                          'chromium']
 
         bad_values = ['[', '\\r', '&', '*', ';', ')', ']', '(', '}', '{', '+', '=', '>', '<', '\\', ',', '/bin/', 'cmd',
-                      '/div', '"', 'pre', 'target', 'path', 'HTTP', 'sys.arg', 'argv', 'form', 'x-php']
+                      '/div', '"', 'pre', 'target', 'path', 'HTTP', 'sys.arg', 'argv', 'form', 'x-php', '/usr/', '\/www.', 'http', 'x-']
 
         bad_values_equals = ['c', 'for', 'or', 'ind', 'IP', 'bin', 'ksh', 'TCP/IP', '', 'html', 'jpg', 'image', 'txt',
-                      'xml', 'png', 'form', 'webp', 'json', 'script', 'body', 'p', 'h1', 'h2', 'a', 'form', 'iframe', 'xhtml']
+                      'xml', 'png', 'form', 'webp', 'json', 'script', 'body', 'p', 'h1', 'h2', 'a', 'form', 'iframe',
+                             'xhtml', 'head', 'title', 'address', 'td', 'tr', '=', 'span', 'gif', 'jpeg', 'css', 'style']
 
         for uri in URIs:
 
             if isinstance(uri, tuple):
                 uri = uri[0] + uri[1]
 
+            items = re.findall(r'(\$.*?)[\/\?\'\"\)\.]', uri)
+            if items:
+                for item in items:
+                    uri = re.sub(re.escape(item)+r'[\/\?\'\"\)\.]', self.recursive(item), uri)
+
+                uri = re.sub('"', '', uri)
             try:
                 uri = regex.sub('"\s*\\\\\\n\s*"', '', uri, timeout=5)
             except TimeoutError as e:
@@ -63,6 +74,9 @@ class Scraper(object):
             uri = unquote(uri)
             uri = unquote_plus(uri)
 
+            uri = re.sub(r'\[[pP][Aa][Tt][Hh].*?\]', 'public', uri)
+            uri = re.sub('\[(?:target|host).*?\]', 'www.example.com', uri)
+
             if ' ' in uri:
                 URIs.extend(re.split('\s+', uri))
                 continue
@@ -77,7 +91,7 @@ class Scraper(object):
 
             stopped = False
             for bad in bad_values:
-                if bad in uri:
+                if bad in uri.lower() and not stopped:
                     stopped = True
                     break
 
@@ -91,9 +105,10 @@ class Scraper(object):
             elif '%s' in uri:
                 uri = re.sub('%s', 'public/', uri)
 
+
             stopped = False
             for bad in bad_values_equals:
-                if bad == uri.lstrip('/'):
+                if bad == uri.lstrip('/').lower() and not stopped:
                     stopped = True
             if stopped:
                 continue
@@ -105,6 +120,10 @@ class Scraper(object):
 
             if uri == '/':
                 uri = '/public/'
+
+            if re.findall('www\..*?\..*', uri):
+                continue
+
 
             new_uris = uri.strip('/').split('/')
             if len(list(set(uri.strip('/').split('/')))) == 1 and len(new_uris) > 1:
@@ -147,3 +166,16 @@ class Scraper(object):
             title = self.collection.find_one({"filename": self.name})['cve']
 
         return title
+
+    def recursive(self, wildcard, depth=5):
+        final = ""
+        uri = re.findall(re.escape(wildcard) + r'\s*=\s*(.*);', self.exploit)
+        if not uri or depth < 0:
+            return '/'
+        if uri[0].startswith(('"', "'")) and uri[0].endswith(('"', "'")):
+            return uri[0].strip('"\'')
+        else:
+            values = re.findall(r'(\$.*?)(?:\.|$)', uri[0], flags=re.M)
+            for value in values:
+                final += self.recursive(value, depth-1)
+            return final

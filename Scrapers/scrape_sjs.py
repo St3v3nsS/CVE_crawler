@@ -96,7 +96,7 @@ class SJSScraper(Scraper):
         except TimeoutError as e:
             print(e)
         try:
-            urls = regex.findall('(?:POST|GET|PUT|PATCH)\s*(.*?)\s*H', self.exploit, timeout=5)
+            urls = regex.findall('(?:GET|POST|PUT|PATCH|HEAD)\s*(.*?)\s*H', self.exploit, timeout=5)
             for uri in urls:
                 if not uri.startswith('/'):
                     URIs.append('/' + uri)
