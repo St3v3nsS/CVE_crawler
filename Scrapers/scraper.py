@@ -4,7 +4,6 @@ from pymongo import MongoClient
 from urllib.parse import unquote
 from urllib.parse import unquote_plus
 import regex
-import re
 import logging
 
 
@@ -21,7 +20,8 @@ class Scraper(object):
         self.collection = self.db['cve_refs']
         self.parsed_col = self.db['parse_exploit']
         self.ext = ext
-        logging.basicConfig(filename='app.log', filemode='a+', format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+        logging.basicConfig(filename='app.log', filemode='a+',
+                            format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 
         self.logger = logging.getLogger('Scraper')
 
@@ -41,23 +41,37 @@ class Scraper(object):
                          'chromium']
 
         bad_values = ['[', '\\r', '&', '*', ';', ')', ']', '(', '}', '{', '+', '=', '>', '<', '\\', ',', '/bin/', 'cmd',
-                      '/div', '"', 'pre', 'target', 'path', 'HTTP', 'sys.arg', 'argv', 'form', 'x-php', '/usr/', '\/www.', 'http', 'x-']
+                      '/div', '"', 'pre', 'target', 'path', 'HTTP', 'sys.arg', 'argv', 'form', 'x-php', '/usr/',
+                      '\/www.', 'http', 'x-', '__',
+                      'altervista']
 
         bad_values_equals = ['c', 'for', 'or', 'ind', 'IP', 'bin', 'ksh', 'TCP/IP', '', 'html', 'jpg', 'image', 'txt',
-                      'xml', 'png', 'form', 'webp', 'json', 'script', 'body', 'p', 'h1', 'h2', 'a', 'form', 'iframe',
-                             'xhtml', 'head', 'title', 'address', 'td', 'tr', '=', 'span', 'gif', 'jpeg', 'css', 'style']
+                             'xml', 'png', 'form', 'webp', 'json', 'script', 'body', 'p', 'h1', 'h2', 'a', 'form',
+                             'iframe',
+                             'xhtml', 'head', 'title', 'address', 'td', 'tr', '=', 'span', 'gif', 'jpeg', 'css', 'style'
+                                                                                                                 'plain',
+                             'table', 'pjpeg', 'media', 'if', 'textarea', 'center', 'font', 'str0ke', 'hostname']
 
         for uri in URIs:
 
             if isinstance(uri, tuple):
                 uri = uri[0] + uri[1]
 
-            items = re.findall(r'(\$.*?)[\/\?\'\"\)\.]', uri)
-            if items:
-                for item in items:
-                    uri = re.sub(re.escape(item)+r'[\/\?\'\"\)\.]', self.recursive(item), uri)
+            if 'milw0rm' in uri.lower():
+                continue
 
-                uri = re.sub('"', '', uri)
+            if uri.startswith(('com/', 'net/', 'org/')):
+                uri = uri[3:]
+
+            try:
+                items = regex.findall(r'(\$.*?)[\/\?\'\"\)\.]', uri)
+                if items:
+                    for item in items:
+                        uri = regex.sub(regex.escape(item) + r'[\/\?\'\"\)\.]', self.recursive(item), uri)
+
+                    uri = regex.sub('"', '', uri)
+            except TimeoutError as e:
+                pass
             try:
                 uri = regex.sub('"\s*\\\\\\n\s*"', '', uri, timeout=5)
             except TimeoutError as e:
@@ -73,21 +87,26 @@ class Scraper(object):
 
             uri = unquote(uri)
             uri = unquote_plus(uri)
-
-            uri = re.sub(r'\[[pP][Aa][Tt][Hh].*?\]', 'public', uri)
-            uri = re.sub('\[(?:target|host).*?\]', 'www.example.com', uri)
+            try:
+                uri = regex.sub(r'\[(?:[pP][Aa][Tt][Hh].*?|dir|product)\]', 'public', uri)
+                uri = regex.sub('\[(?:target|host|victim|url).*?\]', 'www.example.com', uri)
+            except TimeoutError as e:
+                pass
 
             if ' ' in uri:
-                URIs.extend(re.split('\s+', uri))
+                URIs.extend(regex.split('\s+', uri))
                 continue
             try:
                 uri = regex.sub('(?:http:\/\/.*?\/?)(?=\/\S)', '', uri, timeout=5)
             except TimeoutError as e:
                 print('Sub ' + e)
 
-            path = re.findall('(.*?)\?', uri)
-            if path:
-                uri = path[0]
+            try:
+                path = regex.findall('(.*?)\?', uri)
+                if path:
+                    uri = path[0]
+            except TimeoutError as e:
+                pass
 
             stopped = False
             for bad in bad_values:
@@ -100,11 +119,14 @@ class Scraper(object):
 
             if uri.endswith('.'):
                 continue
-            if '/%s' in uri:
-                uri = re.sub('/%s', '/public', uri)
-            elif '%s' in uri:
-                uri = re.sub('%s', 'public/', uri)
 
+            try:
+                if '/%s' in uri:
+                    uri = regex.sub('/%s', '/public', uri)
+                elif '%s' in uri:
+                    uri = regex.sub('%s', 'public/', uri)
+            except TimeoutError as e:
+                pass
 
             stopped = False
             for bad in bad_values_equals:
@@ -112,18 +134,19 @@ class Scraper(object):
                     stopped = True
             if stopped:
                 continue
+            try:
+                uri = regex.sub('^\/\/.*?(\/.*)', '\g<1>', uri, flags=regex.M)
+                uri = regex.sub('//', '/', uri)
+                if regex.findall('(\/[\/0-9]+|\/mm\/yyyy)', uri):
+                    continue
 
-            uri = re.sub('^\/\/.*?(\/.*)', '\g<1>', uri, flags=re.M)
-            uri = re.sub('//', '/', uri)
-            if re.findall('(\/[\/0-9]+|\/mm\/yyyy)', uri):
-                continue
+                if uri == '/':
+                    uri = '/public/'
 
-            if uri == '/':
-                uri = '/public/'
-
-            if re.findall('www\..*?\..*', uri):
-                continue
-
+                if regex.findall('www\..*?\..*', uri):
+                    continue
+            except TimeoutError as e:
+                pass
 
             new_uris = uri.strip('/').split('/')
             if len(list(set(uri.strip('/').split('/')))) == 1 and len(new_uris) > 1:
@@ -133,7 +156,7 @@ class Scraper(object):
                     URI.append('/' + uri.lstrip('/'))
             elif len(new_uris) == 1 and not uri.startswith('/') and '.' not in uri:
                 continue
-            elif re.findall('\d\.\d', uri):
+            elif regex.findall('\d\.\d', uri):
                 continue
             elif len(new_uris) == 1 and len(new_uris[0]) == 1:
                 continue
@@ -158,8 +181,8 @@ class Scraper(object):
         return False
 
     def construct_title(self):
-        title = re.sub('\s', '_', self.title)
-        title = re.sub('\.', '@', title)
+        title = regex.sub('\s', '_', self.title)
+        title = regex.sub('\.', '@', title)
         title = self.name + '_' + title
 
         if self.collection.find_one({"filename": self.name}) is not None:
@@ -169,13 +192,13 @@ class Scraper(object):
 
     def recursive(self, wildcard, depth=5):
         final = ""
-        uri = re.findall(re.escape(wildcard) + r'\s*=\s*(.*);', self.exploit)
+        uri = regex.findall(regex.escape(wildcard) + r'\s*=\s*(.*);', self.exploit)
         if not uri or depth < 0:
             return '/'
         if uri[0].startswith(('"', "'")) and uri[0].endswith(('"', "'")):
             return uri[0].strip('"\'')
         else:
-            values = re.findall(r'(\$.*?)(?:\.|$)', uri[0], flags=re.M)
+            values = regex.findall(r'(\$.*?)(?:\.|$)', uri[0], flags=regex.M)
             for value in values:
-                final += self.recursive(value, depth-1)
+                final += self.recursive(value, depth - 1)
             return final

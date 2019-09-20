@@ -49,11 +49,12 @@ class PHPScraper(Scraper):
             refs.extend(re.findall('(C[VW]E)(?:\s*[-:]\s*)?((?:\d+)?-\d+)', self.exploit))
             comments.extend(re.findall(r'/\*(.*?)\*/', self.exploit, flags=re.S))
             comments.extend(re.findall(r'^//(.*?)\n\n', self.exploit, flags=re.S|re.M))
+            comments.extend(re.findall('echo\s*\"(.*)\";', self.exploit))
             comments.extend(re.findall('^(#.*?)(?:<p|if|#\n\n)', self.exploit, flags=re.S|re.M))
+            name.extend(re.findall('<[tT][iI][tT][lL][eE]>(.*?)</', self.exploit))
 
             for comment in comments:
                 name.extend(re.findall('(?:Title|Name)\s*:?\s*(.*)', comment))
-                name.extend(re.findall('<[tT][iI][tT][lL][eE]>(.*?)</', comment))
                 vversion.extend(re.findall('Versions?\s*:?\s*(.*)', comment))
                 description.extend(
                     re.findall('(?:[Dd]esc(?:ription)?|Summary)\s*:?\s*(.*?)\n\n', comment, flags=re.S | re.M))
@@ -75,7 +76,7 @@ class PHPScraper(Scraper):
                 if isinstance(ref, tuple):
                     references.append([ref[0], ref[1]])
                 else:
-                    if 'www' not in ref:
+                    if not re.findall('(.*?)\.(.*?)\.', ref):
                         continue
                     references.append(['URL', ref])
 
@@ -111,7 +112,7 @@ class PHPScraper(Scraper):
     def parse_url(self):
         URIs = []
 
-        self.exploit = re.sub('\$ARGV\[\d\]', '/', self.exploit)
+        self.exploit = re.sub('\$argv\[\d\]', '/', self.exploit)
 
         try:
             URIs.extend(regex.findall('[\"\']((?:https?:\/\/.*?)*?\.*?\/?\w*?\/[\S]*?)[\"\'](?:.*\+.*[\"\'](.*?)[\"])?',

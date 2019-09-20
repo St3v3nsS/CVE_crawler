@@ -85,8 +85,6 @@ class PerlScraper(Scraper):
                 if isinstance(ref, tuple):
                     references.append([ref[0], ref[1]])
                 else:
-                    if 'www' not in ref:
-                        continue
                     references.append(['URL', ref])
 
             description = ' -- '.join(description)

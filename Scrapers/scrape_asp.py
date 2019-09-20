@@ -7,9 +7,9 @@ import regex
 from .scraper import Scraper
 
 
-class TxtScraper(Scraper):
+class AspScraper(Scraper):
     def __init__(self, filename=None, name=None, exploit_type=None, title=None, platform=None, exploit=None):
-        ext = ['.txt']
+        ext = ['.asp']
         super().__init__(filename, name, exploit_type, title, platform, exploit, ext)
 
     def parse_infos(self):
@@ -44,25 +44,20 @@ class TxtScraper(Scraper):
                         or '/' not in source_at_begin[3]:
                     targets.extend([source_at_begin[3]])
 
-            refs.extend(
-                re.findall('(?:based on|[sS]ee|[vV]isit|[pP]ublished at|[Mm]ore|[sS]ite)\s*:?\s*(.*?)\s', self.exploit))
+            refs.extend(re.findall('(?:based on|[sS]ee|[vV]isit|[pP]ublished at|[Mm]ore|site)\s*:?\s*(.*?)\s', self.exploit))
             refs.extend(re.findall('(C[VW]E)(?:\s*[-:]\s*)?((?:\d+)?-\d+)', self.exploit))
 
+            name.extend(re.findall('Name\s*:\s*(.*)', self.exploit))
             name.extend(re.findall('<[tT][iI][tT][lL][eE]>(.*?)</', self.exploit))
             name.extend(re.findall('title=(.*)', self.exploit))
-            name.extend(re.findall('(?<!\w)(?:Title|[Nn]ame)\s*:?\s*(.*)', self.exploit))
-            if not name:
-                name.extend(re.findall('<h1>(.*?)</h1', self.exploit))
-            vversion.extend(re.findall(r'Vulnerable\s(?:products|Systems)\s*:\s*\n(.*?)\n\n', self.exploit, flags=re.S))
-            if not vversion:
-                vversion.extend(re.findall('[Vv]ersions?\s*:?\s*(.*)', self.exploit))
+
+            name.extend(re.findall('(?:Title|Name)\s*:?\s*(.*)', self.exploit))
+            vversion.extend(re.findall('Versions?\s*:?\s*(.*)', self.exploit))
             description.extend(
-                re.findall('(?:[Dd]esc(?:ription)?|Summary|About)\s*:?\s*(.*?)\n\n?', self.exploit, flags=re.S | re.M))
-            description.extend(re.findall('(?:Product|Vendor)\s*:\s*(.*)', self.exploit))
+                re.findall('(?:[Dd]esc(?:ription)?|Summary)\s*:?\s*(.*?)\n\n', self.exploit, flags=re.S | re.M))
             refs.extend(re.findall('References?:?\s*(.*?)\s', self.exploit))
-            refs.extend(re.findall('(?:[Aa]dvisory|can be found at|Thanks to.*?|Related URLs|Source|Download|Page|URL)\s*:\s*(.*?)\s', self.exploit))
-            refs.extend(re.findall('(?:(?:Software|Download) [lL]ink\s*.*?|advisor(?:y|ies)):\s*(.*)', self.exploit))
-            targets.extend(re.findall('(?:[Tt]ested\s*(?:on|with)|Target)\s*:?\s*(.*)', self.exploit))
+            refs.extend(re.findall('(?:Software [lL]ink\s*|advisor(?:y|ies)):\s*(.*)', self.exploit))
+            targets.extend(re.findall('[Tt]ested\s*(?:on|with)\s*:?\s*(.*)', self.exploit))
 
             description = ' -- '.join(description)
             vversion = ' -- '.join(vversion)
@@ -111,33 +106,32 @@ class TxtScraper(Scraper):
         URIs = []
 
         self.exploit = re.sub('\$argv\[\d\]', '/', self.exploit)
-        try:
-            try:
-                URIs.extend(regex.findall('[\"\']((?:https?:\/\/.*?)*?\.*?\/?\w*?\/[\S]*?)[\"\'](?:.*\+.*[\"\'](.*?)[\"])?',
-                                          self.exploit, timeout=5))
-            except TimeoutError as e:
-                pass
-            try:
-                URIs.extend(regex.findall(r'(?:GET|POST|PUT|PATCH|HEAD)\s*(.*?)\s*[H\"\\]', self.exploit, timeout=5))
-            except TimeoutError as e:
-                pass
-            try:
-                URIs.extend(regex.findall('(\/[\/.a-zA-Z0-9-_\[\]]+)', self.exploit, timeout=5))
-            except TimeoutError as e:
-                pass
-            try:
-                URIs.extend(regex.findall(r'(?:GET|POST|PUT|PATCH|HEAD|EXAMPLE\s*\d+)\s*->\s*(.*)', self.exploit, timeout=5))
-            except TimeoutError as e:
-                pass
-            try:
-                URIs.extend(regex.findall('action=\"(.*?)\"', self.exploit, timeout=5))
-            except TimeoutError as e:
-                pass
 
-            try:
-                URIs.extend(regex.findall('([\w_\-\/\.]+\.\w+\?)', self.exploit, timeout=5))
-            except TimeoutError as e:
-                print(e)
-                pass
-        finally:
-            return self.extract_url(URIs)
+        try:
+            URIs.extend(regex.findall('[\"\']((?:https?:\/\/.*?)*?\.*?\/?\w*?\/[\S]*?)[\"\'](?:.*\+.*[\"\'](.*?)[\"])?',
+                                      self.exploit, timeout=5))
+        except TimeoutError as e:
+            print(e)
+        try:
+            URIs.extend(regex.findall(r'(?:GET|POST|PUT|PATCH|HEAD)\s*(.*?)\s*[H\"\\]', self.exploit, timeout=5))
+        except TimeoutError as e:
+            print(e)
+        try:
+            URIs.extend(regex.findall('(\/[\/.a-zA-Z0-9-_]+)', self.exploit, timeout=5))
+        except TimeoutError as e:
+            print(e)
+        try:
+            URIs.extend(regex.findall(r'action=\"(.*?)\"', self.exploit, timeout=5))
+        except TimeoutError as e:
+            print(e)
+        try:
+            URIs.extend(regex.findall('Response\.Redirect\(\"(.*)\"\)', self.exploit, timeout=5))
+        except TimeoutError as e:
+            print(e)
+        try:
+            URIs.extend(regex.findall('file\=\"(.*)\"', self.exploit, timeout=5))
+        except TimeoutError as e:
+            print(e)
+
+        return self.extract_url(URIs)
+
