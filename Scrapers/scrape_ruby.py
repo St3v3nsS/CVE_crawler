@@ -7,9 +7,9 @@ import regex
 from .scraper import Scraper
 
 
-class TxtScraper(Scraper):
+class RubyScraper(Scraper):
     def __init__(self, filename=None, name=None, exploit_type=None, title=None, platform=None, exploit=None, mongoclient=None):
-        ext = ['.txt']
+        ext = ['.rb']
         super().__init__(filename, name, exploit_type, title, platform, exploit, mongoclient, ext)
 
     def parse_infos(self):
@@ -37,20 +37,20 @@ class TxtScraper(Scraper):
                 source_at_begin = source_at_begin[0]
                 refs.extend([source_at_begin[0]])
                 name.extend([source_at_begin[1]])
-                if '#' not in source_at_begin[2] or '===' not in source_at_begin[2]:
+                if ('#' not in source_at_begin[2] or '#' not in source_at_begin[2]) or '<%' not in source_at_begin[2] \
+                        or '/' not in source_at_begin[2]:
                     description.extend([source_at_begin[2]])
-                if len(source_at_begin[1]) > 2 and '#' not in source_at_begin[3]:
+                if len(source_at_begin[1]) > 2 and '#' not in source_at_begin[3] or '<%' not in source_at_begin[3] \
+                        or '/' not in source_at_begin[3]:
                     targets.extend([source_at_begin[3]])
 
             refs.extend(
                 re.findall(r'(?:based on|[sS]ee|[vV]isit|[pP]ublished at|[Mm]ore|[sS]ite)\s*:?\s*(.*?)\s', self.exploit))
             refs.extend(re.findall(r'(C[VW]E)(?:\s*[-:]\s*)?((?:\d+)?-\d+)', self.exploit))
 
-            name.extend(re.findall(r'<[tT][iI][tT][lL][eE]>(.*?)</', self.exploit))
             name.extend(re.findall(r'title=(.*)', self.exploit))
             name.extend(re.findall(r'(?<!\")\s(?<!\w)(?:Title|[Nn]ame|Exploit)\s*:?\s*(.*)', self.exploit))
-            if not name:
-                name.extend(re.findall(r'<h1>(.*?)</h1', self.exploit))
+
             vversion.extend(re.findall(r'Vulnerable\s(?:products|Systems)\s*:\s*\n(.*?)\n\n', self.exploit, flags=re.S))
             if not vversion:
                 vversion.extend(re.findall(r'[Vv]ersions?\s*:?\s*(.*)', self.exploit))

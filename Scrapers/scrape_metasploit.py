@@ -1,13 +1,15 @@
 import re
 import json
 import datetime
+import time
+
 from .scraper import Scraper
 
 
 class MetasploitParser(Scraper):
-    def __init__(self, filename=None, name=None, exploit_type=None, title=None, platform=None, exploit=None):
+    def __init__(self, filename=None, name=None, exploit_type=None, title=None, platform=None, exploit=None, mongoclient=None):
         ext = ['.rb']
-        super().__init__(filename, name, exploit_type, title, platform, exploit, ext)
+        super().__init__(filename, name, exploit_type, title, platform, exploit, mongoclient, ext)
         self.brackets = {
             '{': '}',
             '[': ']',
@@ -292,6 +294,8 @@ class MetasploitParser(Scraper):
             URIs = self.parse_url()
 
             myDict['URI'] = list(set(URIs))
+            if self.name == '44482':
+                self.logger.error(str(myDict['URI']))
 
             file = open('/home/john/Desktop/metasploits', 'a+')
 

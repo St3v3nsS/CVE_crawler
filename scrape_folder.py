@@ -20,45 +20,48 @@ dictionary = {}
 
 start = time.time()
 
-for (root, dirs, files) in os.walk('/home/john/Desktop/exploitdb/exploitdb/exploits', topdown=True):
-    for name in files:
-        filename = os.path.join(root, name)
 
-        with open(filename) as f:
-            exploit = f.read()
+def parse_folder(path):
+    print(path)
+    time.sleep(10)
+    for (root, dirs, files) in os.walk(path, topdown=True):
+        for name in files:
+            filename = os.path.join(root, name)
 
-        exploit_type = root.split('/')[-1]
-        name1, ext = os.path.splitext(name)
+            with open(filename) as f:
+                exploit = f.read()
 
-        description_edb = exploitdb.find_one({"filename": name})
-        if description_edb is not None:
-            description_edb = description_edb['title']
+            exploit_type = root.split('/')[-1]
+            name1, ext = os.path.splitext(name)
 
-        platform_edb = exploitdb.find_one({"filename": name})
-        if platform_edb is not None:
-            platform_edb = platform_edb['platform']
+            description_edb = exploitdb.find_one({"filename": name})
+            if description_edb is not None:
+                description_edb = description_edb['title']
 
-        if dictionary.get(ext) is not None:
-            dictionary[ext]['total'] += 1
-        else:
-            obj = {
-                "total": 1,
-                "filename": filename
-            }
-            dictionary[ext] = obj
+            platform_edb = exploitdb.find_one({"filename": name})
+            if platform_edb is not None:
+                platform_edb = platform_edb['platform']
 
-        if ext == '.rb':
-            metasploit = re.findall('class Metasploit', exploit)  # Search for 'Metasploit' occurence
-            if not metasploit:
+            if dictionary.get(ext) is not None:
+                dictionary[ext]['total'] += 1
+            else:
+                obj = {
+                    "total": 1,
+                    "filename": filename
+                }
+                dictionary[ext] = obj
+
+            if ext == '.rb':
+                metasploit = re.findall('(?:class Metasploit|msf/core)', exploit)  # Search for 'Metasploit' occurence
+                if metasploit:
+                    ext = '.metasploit'
+
+            print(filename)
+            parser = scrapers.get(ext)
+            if not parser:
                 continue
-            ext = '.metasploit'
 
-        print(filename)
-        parser = scrapers.get(ext)
-        if not parser:
-            continue
+            scraper = parser(filename, name1, exploit_type, description_edb, platform_edb, exploit, client)
+            scraper.parse_infos()
 
-        scraper = parser(filename, name1, exploit_type, description_edb, platform_edb, exploit)
-        scraper.parse_infos()
-
-print(time.time() - start)
+    print(time.time() - start)

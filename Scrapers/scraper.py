@@ -1,6 +1,5 @@
 import time
 
-from pymongo import MongoClient
 from urllib.parse import unquote
 from urllib.parse import unquote_plus
 import regex
@@ -8,17 +7,18 @@ import logging
 
 
 class Scraper(object):
-    def __init__(self, filename, name, exploit_type, title, platform, exploit, ext=None):
+    def __init__(self, filename, name, exploit_type, title, platform, exploit, mongoclient, ext=None):
         self.exploit = exploit
         self.filename = filename
         self.name = name
         self.exploit_type = exploit_type
         self.title = title
         self.platform = platform
-        self.client = MongoClient('mongodb://localhost:27017')
-        self.db = self.client['exploits']
-        self.collection = self.db['cve_refs']
-        self.parsed_col = self.db['parse_exploit']
+        self.client = mongoclient
+        if mongoclient is not None:
+            self.db = self.client['exploits']
+            self.collection = self.db['cve_refs']
+            self.parsed_col = self.db['parse_exploit']
         self.ext = ext
         logging.basicConfig(filename='app.log', filemode='a+',
                             format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
@@ -41,7 +41,7 @@ class Scraper(object):
                          'chromium']
 
         bad_values = ['[', '\\r', '&', '*', ';', ')', ']', '(', '}', '{', '+', '=', '>', '<', '\\', ',', '/bin/', 'cmd',
-                      '/div', '"', 'pre', 'target', 'path', 'HTTP', 'sys.arg', 'argv', 'form', 'x-php', '/usr/',
+                      '/div', '"', 'pre', 'target', 'path', 'HTTP', 'sys.arg', 'argv', 'x-php', '/usr/',
                       '\/www.', 'http', 'x-', '__',
                       'altervista']
 
@@ -50,7 +50,8 @@ class Scraper(object):
                              'iframe',
                              'xhtml', 'head', 'title', 'address', 'td', 'tr', '=', 'span', 'gif', 'jpeg', 'css', 'style'
                                                                                                                  'plain',
-                             'table', 'pjpeg', 'media', 'if', 'textarea', 'center', 'font', 'str0ke', 'hostname']
+                             'table', 'pjpeg', 'media', 'if', 'textarea', 'center', 'font', 'str0ke', 'hostname', 'quicktime',
+                             'form-data']
 
         for uri in URIs:
 
@@ -118,7 +119,7 @@ class Scraper(object):
                 continue
 
             if uri.endswith('.'):
-                continue
+                uri = uri[:-1]
 
             try:
                 if '/%s' in uri:

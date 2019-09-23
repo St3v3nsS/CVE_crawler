@@ -24,11 +24,12 @@ def extract(content):
             collection.update({"filename": tds[0].split(':')[1]}, obj, upsert=True)
 
 
-url = 'https://cve.mitre.org/data/refs/refmap/source-EXPLOIT-DB.html'
-headers = {
-    "Accept": '*/*',
-    "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_9_3) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/35.0.1916.47 Safari/537.36"
-}
+def scrape_mitre():
+    url = 'https://cve.mitre.org/data/refs/refmap/source-EXPLOIT-DB.html'
+    headers = {
+        "Accept": '*/*',
+        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_9_3) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/35.0.1916.47 Safari/537.36"
+    }
 
-res = requests.get(url, headers=headers)
-extract(res.content)
+    res = requests.get(url, headers=headers)
+    extract(res.content)
