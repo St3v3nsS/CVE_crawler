@@ -22,8 +22,6 @@ start = time.time()
 
 
 def parse_folder(path):
-    print(path)
-    time.sleep(10)
     for (root, dirs, files) in os.walk(path, topdown=True):
         for name in files:
             filename = os.path.join(root, name)
@@ -34,13 +32,14 @@ def parse_folder(path):
             exploit_type = root.split('/')[-1]
             name1, ext = os.path.splitext(name)
 
-            description_edb = exploitdb.find_one({"filename": name})
-            if description_edb is not None:
-                description_edb = description_edb['title']
-
-            platform_edb = exploitdb.find_one({"filename": name})
-            if platform_edb is not None:
-                platform_edb = platform_edb['platform']
+            platform_edb = None
+            description_edb = None
+            date = None
+            edb = exploitdb.find_one({"filename": name})
+            if edb is not None:
+                description_edb = edb['title']
+                platform_edb = edb['platform']
+                date = edb['date']
 
             if dictionary.get(ext) is not None:
                 dictionary[ext]['total'] += 1
@@ -61,7 +60,7 @@ def parse_folder(path):
             if not parser:
                 continue
 
-            scraper = parser(filename, name1, exploit_type, description_edb, platform_edb, exploit, client)
+            scraper = parser(filename, name1, exploit_type, description_edb, platform_edb, exploit, client, date)
             scraper.parse_infos()
 
     print(time.time() - start)

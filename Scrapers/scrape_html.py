@@ -6,9 +6,9 @@ from .scraper import Scraper
 from six import string_types
 
 class HTMLParser(Scraper):
-    def __init__(self, filename=None, name=None, exploit_type=None, title=None, platform=None, exploit=None, mongoclient=None):
+    def __init__(self, filename=None, name=None, exploit_type=None, title=None, platform=None, exploit=None, mongoclient=None, date=None):
         ext = ['.html', '.xhtml']
-        super().__init__(filename, name, exploit_type, title, platform, exploit, mongoclient, ext)
+        super().__init__(filename, name, exploit_type, title, platform, exploit, mongoclient, date, ext)
     
     def parse_infos(self):
         cves = self.db['cves']
@@ -149,7 +149,7 @@ class HTMLParser(Scraper):
             
             references = []
             for ref in list(set(refs)):
-                if isinstance(ref,tuple):
+                if isinstance(ref, tuple):
                     references.append([ref[0], ref[1]])
                 else:
                     references.append(['URL', ref])
@@ -164,12 +164,13 @@ class HTMLParser(Scraper):
                 "Platform": self.platform,
                 "References": references,
                 "Type": self.exploit_type,
+                "Date": self.date,
                 "URI": list(set(URI))   
             }
 
             cves.update({"EDB-ID":self.name}, myDict, upsert=True)
         except Exception as e:
-            error = True
+            error = str(e)
             parsed_file = False
         finally:
             parsed_obj = {
@@ -186,19 +187,19 @@ class HTMLParser(Scraper):
         try:
             URIs.extend(regex.findall('value=[\"\']?(?:https?://)?([^<>]+?)[\"\'\s]', self.exploit, timeout=5))
         except TimeoutError as e:
-            print('uri1 ' + e)
+            print('uri1 ' + str(e))
         try:    
             URIs.extend(regex.findall('[\"\']((?:https?:\/\/.*?)*?\.*?\/?\w*?\/[\S]*?)[\"\'](?:.*\+.*[\"\'](.*?)[\"])?', self.exploit, timeout=5))
         except TimeoutError as e:
-            print('uri2 ' + e)
+            print('uri2 ' + str(e))
         try:    
             URIs.extend(regex.findall('action=[\"\'](?:https?://)?([^>]*?)[\"\']', self.exploit, timeout=5, flags=re.M|re.S))
         except TimeoutError as e:
-            print('uri3 ' + e)
+            print('uri3 ' + str(e))
         try:    
             URIs.extend(regex.findall('^(?:GET|POST|PUT|PATCH|HEAD)\s*(.*?)\s*H', self.exploit, timeout=5, flags=re.M))
         except TimeoutError as e:
-            print('uri4 ' + e)
+            print('uri4 ' + str(e))
         try:
             construct_uri = regex.findall('action=\s*.*?document.*?\+(.*?)\+(.*?)\+(.*?);', self.exploit, timeout=5 )
             for uri_to_construct in construct_uri:
@@ -208,7 +209,7 @@ class HTMLParser(Scraper):
 
                 URIs.extend([value1+value2+value3])        
         except TimeoutError as e:
-            print('uri5 ' + e)
+            print('uri5 ' + str(e))
 
         return self.extract_url(URIs)
 

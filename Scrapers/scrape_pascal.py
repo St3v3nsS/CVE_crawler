@@ -6,9 +6,9 @@ from .scraper import Scraper
 
 
 class PascalScraper(Scraper):
-    def __init__(self, filename=None, name=None, exploit_type=None, title=None, platform=None, exploit=None, mongoclient=None):
+    def __init__(self, filename=None, name=None, exploit_type=None, title=None, platform=None, exploit=None, mongoclient=None, date=None):
         ext = ['.pas']
-        super().__init__(filename, name, exploit_type, title, platform, exploit, mongoclient, ext)
+        super().__init__(filename, name, exploit_type, title, platform, exploit, mongoclient, date, ext)
 
     def parse_infos(self):
         cves = self.db['cves']  # The main mongo collection
@@ -65,6 +65,7 @@ class PascalScraper(Scraper):
                 "Platform": self.platform,
                 "References": references,
                 "Type": self.exploit_type,
+                "Date": self.date,
                 "URI": list(set(URI))
             }
             # Add the details to mongodb

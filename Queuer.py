@@ -1,12 +1,47 @@
+import re
+import time
+from builtins import any
+from urllib.parse import urlparse
+from urllib.parse import unquote
+
+
 class Queuer(object):
     def __init__(self, url_list):
-        self.url_list = url_list
+        self.url_list = list(set(url_list))
+        self.parsed = []
+        self.blacklist = ['instagram', 'facebook', 'twitter', 'flickr', 'linkedin', 'whatsapp', 'pinterest', 'www.wordpress.com', 'hbo', 'netflix', 'amazon', 'premiumcoding']
     
     def pop(self):
-        return self.url_list.pop()
+        return self.url_list.pop(0)
     
-    def push(self, list_to_push):
+    def push(self, list_to_push, domain):
+
+        list_to_push = self.blacklisted_urls(list_to_push)
         self.url_list.extend(list_to_push)
+        seen = set()
+        seen_add = seen.add
+        self.url_list = [x for x in self.url_list if not (x in seen or seen_add(x))]
+        non_domain_lista = [x for x in self.url_list if not re.findall(re.escape(domain), urlparse(x).netloc)]
+        domain_lista = [x for x in self.url_list if x not in non_domain_lista]
+        self.url_list = domain_lista + non_domain_lista
+        if not any(domain in x for x in self.url_list):
+            print(domain)
+            self.url_list = []
+        print( self.url_list)
 
     def empty(self):
         return True if len(self.url_list) == 0 else False
+
+    def blacklisted_urls(self, urls):
+        to_push = []
+        for url in urls:
+            found = False
+            for garbagge in self.blacklist:
+                if garbagge in url:
+                    found = True
+                    break
+            if not found:
+                to_push.append(url)
+        list_to_push = [unquote(re.sub( for x in to_push if x not in self.parsed]
+
+        return list_to_push

@@ -7,7 +7,7 @@ import logging
 
 
 class Scraper(object):
-    def __init__(self, filename, name, exploit_type, title, platform, exploit, mongoclient, ext=None):
+    def __init__(self, filename, name, exploit_type, title, platform, exploit, mongoclient, date, ext=None):
         self.exploit = exploit
         self.filename = filename
         self.name = name
@@ -15,6 +15,7 @@ class Scraper(object):
         self.title = title
         self.platform = platform
         self.client = mongoclient
+        self.date = date
         if mongoclient is not None:
             self.db = self.client['exploits']
             self.collection = self.db['cve_refs']
@@ -54,7 +55,6 @@ class Scraper(object):
                              'form-data']
 
         for uri in URIs:
-
             if isinstance(uri, tuple):
                 uri = uri[0] + uri[1]
 
@@ -63,6 +63,9 @@ class Scraper(object):
 
             if uri.startswith(('com/', 'net/', 'org/')):
                 uri = uri[3:]
+
+            if '\n' in uri:
+                continue
 
             try:
                 items = regex.findall(r'(\$.*?)[\/\?\'\"\)\.]', uri)
@@ -76,15 +79,15 @@ class Scraper(object):
             try:
                 uri = regex.sub('"\s*\\\\\\n\s*"', '', uri, timeout=5)
             except TimeoutError as e:
-                print('slash ' + e)
+                print('slash ' + str(e))
             try:
                 uri = regex.sub('%%', '%', uri, timeout=5)
             except TimeoutError as e:
-                print('proc ' + e)
+                print('proc ' + str(e))
             try:
                 uri = regex.sub('[\"\']\s*\+.*[\"\']', '', uri, timeout=5)
             except TimeoutError as e:
-                print('plus ' + e)
+                print('plus ' + str(e))
 
             uri = unquote(uri)
             uri = unquote_plus(uri)
@@ -100,7 +103,7 @@ class Scraper(object):
             try:
                 uri = regex.sub('(?:http:\/\/.*?\/?)(?=\/\S)', '', uri, timeout=5)
             except TimeoutError as e:
-                print('Sub ' + e)
+                print('Sub ' + str(e))
 
             try:
                 path = regex.findall('(.*?)\?', uri)
@@ -114,7 +117,6 @@ class Scraper(object):
                 if bad in uri.lower() and not stopped:
                     stopped = True
                     break
-
             if stopped:
                 continue
 
@@ -168,9 +170,8 @@ class Scraper(object):
                     else:
                         URI.append('/' + uri.lstrip('/'))
                 except TimeoutError as e:
-                    print('Some shiet ' + e)
+                    print('Some shiet ' + str(e))
                     continue
-
         return URI
 
     def is_parsed(self):

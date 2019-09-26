@@ -8,9 +8,9 @@ from .scraper import Scraper
 
 
 class TxtScraper(Scraper):
-    def __init__(self, filename=None, name=None, exploit_type=None, title=None, platform=None, exploit=None, mongoclient=None):
+    def __init__(self, filename=None, name=None, exploit_type=None, title=None, platform=None, exploit=None, mongoclient=None, date=None):
         ext = ['.txt']
-        super().__init__(filename, name, exploit_type, title, platform, exploit, mongoclient, ext)
+        super().__init__(filename, name, exploit_type, title, platform, exploit, mongoclient, date, ext)
 
     def parse_infos(self):
         cves = self.db['cves']
@@ -87,6 +87,7 @@ class TxtScraper(Scraper):
                 "Platform": self.platform,
                 "References": references,
                 "Type": self.exploit_type,
+                "Date": self.date,
                 "URI": list(set(URI))
             }
 
@@ -117,7 +118,7 @@ class TxtScraper(Scraper):
             except TimeoutError as e:
                 pass
             try:
-                URIs.extend(regex.findall(r'(?:GET|POST|PUT|PATCH|HEAD)\s*(.*?)\s*[H\"\\]', self.exploit, timeout=5))
+                URIs.extend(regex.findall(r'(?:GET|POST|PUT|PATCH|HEAD)\s*(.*?)\s*[H\"\']', self.exploit, timeout=5))
             except TimeoutError as e:
                 pass
             try:

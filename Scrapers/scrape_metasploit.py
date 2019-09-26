@@ -7,9 +7,9 @@ from .scraper import Scraper
 
 
 class MetasploitParser(Scraper):
-    def __init__(self, filename=None, name=None, exploit_type=None, title=None, platform=None, exploit=None, mongoclient=None):
+    def __init__(self, filename=None, name=None, exploit_type=None, title=None, platform=None, exploit=None, mongoclient=None, date=None):
         ext = ['.rb']
-        super().__init__(filename, name, exploit_type, title, platform, exploit, mongoclient, ext)
+        super().__init__(filename, name, exploit_type, title, platform, exploit, mongoclient, date, ext)
         self.brackets = {
             '{': '}',
             '[': ']',
@@ -272,7 +272,8 @@ class MetasploitParser(Scraper):
 
             myDict = {
                 "EDB-ID": self.name,
-                "Vulnerability": title
+                "Vulnerability": title,
+                "Date": self.date,
             }
 
             arr = ['Name', 'Description', 'Platform', 'References', 'Targets']

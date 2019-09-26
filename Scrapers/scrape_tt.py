@@ -6,9 +6,9 @@ from .scraper import Scraper
 
 
 class TTScraper(Scraper):
-    def __init__(self, filename=None, name=None, exploit_type=None, title=None, platform=None, exploit=None, mongoclient=None):
+    def __init__(self, filename=None, name=None, exploit_type=None, title=None, platform=None, exploit=None, mongoclient=None, date=None):
         ext = ['.tt']
-        super().__init__(filename, name, exploit_type, title, platform, exploit, mongoclient, ext)
+        super().__init__(filename, name, exploit_type, title, platform, exploit, mongoclient, date, ext)
         self.refs = None
 
     def parse_infos(self):
@@ -65,6 +65,7 @@ class TTScraper(Scraper):
                 "Platform": self.platform,
                 "References": references,
                 "Type": self.exploit_type,
+                "Date": self.date,
                 "URI": list(set(URI))
             }
 

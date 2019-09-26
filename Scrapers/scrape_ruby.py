@@ -8,9 +8,9 @@ from .scraper import Scraper
 
 
 class RubyScraper(Scraper):
-    def __init__(self, filename=None, name=None, exploit_type=None, title=None, platform=None, exploit=None, mongoclient=None):
+    def __init__(self, filename=None, name=None, exploit_type=None, title=None, platform=None, exploit=None, mongoclient=None, date=None):
         ext = ['.rb']
-        super().__init__(filename, name, exploit_type, title, platform, exploit, mongoclient, ext)
+        super().__init__(filename, name, exploit_type, title, platform, exploit, mongoclient, date, ext)
 
     def parse_infos(self):
         cves = self.db['cves']
@@ -87,6 +87,7 @@ class RubyScraper(Scraper):
                 "Platform": self.platform,
                 "References": references,
                 "Type": self.exploit_type,
+                "Date": self.date,
                 "URI": list(set(URI))
             }
 
