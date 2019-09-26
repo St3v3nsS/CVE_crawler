@@ -8,26 +8,31 @@ from urllib.parse import unquote
 class Queuer(object):
     def __init__(self, url_list):
         self.url_list = list(set(url_list))
-        self.parsed = []
-        self.blacklist = ['instagram', 'facebook', 'twitter', 'flickr', 'linkedin', 'whatsapp', 'pinterest', 'www.wordpress.com', 'hbo', 'netflix', 'amazon', 'premiumcoding']
+        self.parsed_url = []
+        self.parsed_domains = []
+        self.current_domain = ''
+        self.blacklist = ['instagram', 'facebook', 'twitter', 'flickr', 'linkedin', 'whatsapp', 'pinterest', 'www.wordpress.com', 'hbo', 'netflix', 'amazon', 'premiumcoding', 'javascript', 'oembed']
     
     def pop(self):
         return self.url_list.pop(0)
     
-    def push(self, list_to_push, domain):
+    def push(self, list_to_push):
 
         list_to_push = self.blacklisted_urls(list_to_push)
         self.url_list.extend(list_to_push)
         seen = set()
         seen_add = seen.add
         self.url_list = [x for x in self.url_list if not (x in seen or seen_add(x))]
-        non_domain_lista = [x for x in self.url_list if not re.findall(re.escape(domain), urlparse(x).netloc)]
+        non_domain_lista = [x for x in self.url_list if not re.findall(re.escape(self.current_domain), urlparse(x).netloc)]
         domain_lista = [x for x in self.url_list if x not in non_domain_lista]
         self.url_list = domain_lista + non_domain_lista
-        if not any(domain in x for x in self.url_list):
-            print(domain)
-            self.url_list = []
-        print( self.url_list)
+        if not any(self.current_domain in urlparse(x).netloc for x in self.url_list):
+            self.parsed_domains.append(self.current_domain)
+            self.current_domain = ''
+            with open('/home/john/Desktop/parsed', 'a+') as f:
+                f.write(self.parsed_domains.__str__())
+            time.sleep(10)
+        print(self.url_list)
 
     def empty(self):
         return True if len(self.url_list) == 0 else False
@@ -42,6 +47,6 @@ class Queuer(object):
                     break
             if not found:
                 to_push.append(url)
-        list_to_push = [unquote(re.sub( for x in to_push if x not in self.parsed]
+        list_to_push = [unquote(re.sub('\"', '', re.sub(r'\\', '', x)))for x in to_push if x not in self.parsed_url]
 
         return list_to_push

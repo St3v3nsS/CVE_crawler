@@ -1,5 +1,6 @@
 import re
 import time
+from packaging import version
 
 
 def check_details(data, collection):
@@ -11,15 +12,26 @@ def check_details(data, collection):
 
         if not description:
             description = ''
+            description = re.sub('up to', '<=', description)
+            description = re.sub('between', '-', description)
+        else:
+            description = description.lower()
         if not name:
             name = ''
+        else:
+            name = name.lower()
         if data['cms'] in description or data['cms'] in name:
             if data['version'] in description or data['version'] in description:
                 vulns.append(doc.get('Vulnerability'))
 
         for key in data['Plugins'].keys():
-            if key in description or key in name:
-                if data['Plugins'][key] in description or data['Plugins'][key] in name:
+            plugin = re.sub('_', r'\s', key).lower()
+            vversion = data['Plugins'][key].lower()
+            if plugin in description or plugin in name:
+                regex_between = re.compile(r'((?:\d+?\.?)+)\s*-\s*((?:\d+?\.?)+)', description)
+                regex_small = re.compile(r'(?:<=?)?\s*((?:\d+?\.?)+)\s*(?:<=?)?', description)
+                regex_bigger = re.compile(r'(?:>?=?>?)?\s*((?:\d+?\.?)+)\s*(?:>?=?>?)?')
+                if vversion in description or vversion in name:
                     vulns.append(doc.get('Vulnerability'))
 
     return vulns

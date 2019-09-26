@@ -20,9 +20,11 @@ while not myQueuer.empty():
     url = myQueuer.pop()
     print(f'Url in pyscript {url}')
     domain = urlparse(url).netloc
-    if cnt == 1:
-        first_domain = domain
-        cnt += 1
+    if domain not in myQueuer.parsed_domains:
+        myQueuer.current_domain = domain
+    elif domain != myQueuer.current_domain:
+        continue
+
     if not domain:
         domain = 'Paths'
     if domain not in exploits:
@@ -38,12 +40,12 @@ while not myQueuer.empty():
             else:
                 data_about_domain = domains.get(domain)
             exploits[domain].extend(check_details(data_about_domain, collection))
-            myQueuer.push(response, first_domain)
+            myQueuer.push(response)
         except Exception as e:
             print(e)
 
     exploits[domain].extend(check(urlparse(url).path, collection, data_about_domain))
-    myQueuer.parsed.append(url)
+    myQueuer.parsed_url.append(url)
 
 for domain in exploits.keys():
     print(domain)

@@ -24,6 +24,7 @@ def extract_infos(headers, content):
                 version = re.findall('\d+\.*\d*\.*\d*', cms)
                 if version:
                     version = version[0]
+                cms = re.sub(re.escape(version), '', cms).strip()
 
     if cms == 'Default':
         if 'x-powered-by' in headers.keys():
