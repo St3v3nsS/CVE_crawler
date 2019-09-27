@@ -48,32 +48,24 @@ def check_details(data, collection, domain):
                     v1 = regex_between[0][0]
                     v2 = regex_between[0][1]
                     if version.parse(v1) <= version.parse(vversion) <= version.parse(v2):
-                        print('Without:\t\t\t')
-                        print(description)
-                        print(name)
+                        
                         vulns = update_vulns(doc, vulns, domain)
                 elif regex_small:
                     v1 = regex_small[0]
                     if isinstance(v1, tuple):
                         v1 = v1[0] if v1[0] else v1[1]
-                    if version.parse(v1) <= version.parse(vversion):
-                        print('Without:\t\t\t')
-                        print(description)
-                        print(name)
+                    if version.parse(v1) >= version.parse(vversion):
+
                         vulns = update_vulns(doc, vulns, domain)
                 elif regex_bigger:
                     v2 = regex_bigger[0]
                     if isinstance(v2, tuple):
                         v2 = v2[0] if v2[0] else v2[1]
-                    if version.parse(vversion) <= version.parse(v2):
-                        print('Without:\t\t\t')
-                        print(description)
-                        print(name)
+                    if version.parse(vversion) >= version.parse(v2):
+
                         vulns = update_vulns(doc, vulns, domain)
                 elif vversion and vversion != 'version' and (vversion in description or vversion in name):
-                    print('Without:\t\t\t')
-                    print(description)
-                    print(name)
+
                     vulns = update_vulns(doc, vulns, domain)
             except TimeoutError as e:
                 pass
@@ -92,32 +84,24 @@ def check_details(data, collection, domain):
                         v1 = regex_between[0][0]
                         v2 = regex_between[0][1]
                         if version.parse(v1) <= version.parse(vversion) <= version.parse(v2):
-                            print('With:\t\t\t')
-                            print(description)
-                            print(name)
+
                             vulns = update_vulns(doc, vulns, domain)
                     elif regex_small:
                         v1 = regex_small[0]
                         if isinstance(v1, tuple):
                             v1 = v1[0] if v1[0] else v1[1]
-                        if version.parse(v1) <= version.parse(vversion):
-                            print('With:\t\t\t')
-                            print(description)
-                            print(name)
+                        if version.parse(v1) >= version.parse(vversion):
+
                             vulns = update_vulns(doc, vulns, domain)
                     elif regex_bigger:
                         v2 = regex_bigger[0]
                         if isinstance(v2, tuple):
                             v2 = v2[0] if v2[0] else v2[1]
-                        if version.parse(vversion) <= version.parse(v2):
-                            print('With:\t\t\t')
-                            print(description)
-                            print(name)
+                        if version.parse(vversion) >= version.parse(v2):
+
                             vulns = update_vulns(doc, vulns, domain)
                     elif vversion and vversion != 'version' and (vversion in description or vversion in name):
-                        print('With:\t\t\t')
-                        print(description)
-                        print(name)
+
                         vulns = update_vulns(doc, vulns, domain)
                 except TimeoutError as e:
                     pass
