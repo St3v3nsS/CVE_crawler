@@ -11,12 +11,14 @@ class Queuer(object):
         self.parsed_url = []
         self.parsed_domains = []
         self.current_domain = ''
-        self.blacklist = ['instagram', 'facebook', 'twitter', 'flickr', 'linkedin', 'whatsapp', 'pinterest', 'www.wordpress.com', 'hbo', 'netflix', 'amazon', 'premiumcoding', 'javascript', 'oembed']
+        self.blacklist = ['instagram', 'facebook', 'twitter', 'flickr', 'linkedin', 'whatsapp', 'pinterest',
+                          'www.wordpress.com', 'hbo', 'netflix', 'amazon', 'premiumcoding', 'javascript', 'oembed',
+                          'wikipedia', 'fonts', 'google', 'bing', 'yahoo']
     
     def pop(self):
         return self.url_list.pop(0)
     
-    def push(self, list_to_push):
+    def push(self, list_to_push, exploits):
 
         list_to_push = self.blacklisted_urls(list_to_push)
         self.url_list.extend(list_to_push)
@@ -28,11 +30,10 @@ class Queuer(object):
         self.url_list = domain_lista + non_domain_lista
         if not any(self.current_domain in urlparse(x).netloc for x in self.url_list):
             self.parsed_domains.append(self.current_domain)
-            self.current_domain = ''
             with open('/home/john/Desktop/parsed', 'a+') as f:
-                f.write(self.parsed_domains.__str__())
-            time.sleep(10)
-        print(self.url_list)
+                f.write(self.current_domain + '\n' + str(exploits) + '\n')
+            self.current_domain = ''
+        print(len(self.url_list))
 
     def empty(self):
         return True if len(self.url_list) == 0 else False

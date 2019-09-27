@@ -6,13 +6,14 @@ from urllib.parse import urlparse
 from extract_infos import extract_infos
 from pymongo import MongoClient
 from check_details import check_details
+import traceback
 
 client = MongoClient('mongodb://localhost:27017')
 db = client['exploits']
 collection = db['cves']
 
 domains = {}
-myQueuer = Queuer(['https://amarculeseidiana.com/'])
+myQueuer = Queuer(['http://localhost:8081/index.html'])
 exploits = {}
 first_domain = ''
 cnt = 1
@@ -25,26 +26,36 @@ while not myQueuer.empty():
     elif domain != myQueuer.current_domain:
         continue
 
-    if not domain:
+    if not domain or domain == '':
         domain = 'Paths'
     if domain not in exploits:
         exploits[domain] = []
     data_about_domain = {}
+    to_url = False
+    domain = myQueuer.current_domain
     if url.startswith('http'):
         try:
             resp = requests.get(url, headers={'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/77.0.3865.75 Safari/537.36'})
             response = extract(resp.content)
+            myQueuer.push(response, exploits[domain])
+
+            if '/tag/' in url or '/feed' in url:
+                myQueuer.parsed_url.append(url)
+                continue
+
             if domain not in domains:
                 data_about_domain = extract_infos(resp.headers, resp.text)
                 domains[domain] = data_about_domain
             else:
                 data_about_domain = domains.get(domain)
-            exploits[domain].extend(check_details(data_about_domain, collection))
-            myQueuer.push(response)
+            if data_about_domain['cms'] == 'Default':
+                to_url = True
+            exploits[domain].extend(check_details(data_about_domain, collection, domain))
         except Exception as e:
-            print(e)
+            traceback.print_tb(e.__traceback__)
 
-    exploits[domain].extend(check(urlparse(url).path, collection, data_about_domain))
+    if to_url:
+        exploits[domain].extend(check(urlparse(url).path, collection))
     myQueuer.parsed_url.append(url)
 
 for domain in exploits.keys():
