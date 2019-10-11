@@ -143,7 +143,9 @@ class PerlScraper(Scraper):
             URIs.extend([''.join(re.findall('(?:path|url)\s*\.?=\s*\"?(.*)\"?;\s+', self.exploit))])
         except TimeoutError as e:
             print(e)
-
+        blacklist = regex.findall(r'(Exploit\s*[aA].*|Vendor.*|Software.*|Ref.*)', self.exploit)
+        if blacklist:
+            URIs = [item for item in URIs if item not in blacklist]
         return self.extract_url(URIs)
 
     def parse_metasploit(self):

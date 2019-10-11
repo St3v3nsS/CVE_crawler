@@ -103,5 +103,7 @@ class CobolScraper(Scraper):
             URIs.extend(regex.findall('(\/?\S+\/\S+\/?\S+)', self.exploit, timeout=5))
         except TimeoutError as e:
             print(e)
-
+        blacklist = regex.findall(r'(Exploit\s*[aA].*|Vendor.*|Software.*|Ref.*)', self.exploit)
+        if blacklist:
+            URIs = [item for item in URIs if item not in blacklist]
         return self.extract_url(URIs)

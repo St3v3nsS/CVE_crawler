@@ -210,7 +210,9 @@ class HTMLParser(Scraper):
                 URIs.extend([value1+value2+value3])        
         except TimeoutError as e:
             print('uri5 ' + str(e))
-
+        blacklist = regex.findall(r'(Exploit\s*[aA].*|Vendor.*|Software.*|Ref.*)', self.exploit)
+        if blacklist:
+            URIs = [item for item in URIs if item not in blacklist]
         return self.extract_url(URIs)
 
 

@@ -2,6 +2,7 @@ import re
 import json
 import datetime
 import time
+import regex
 
 from .scraper import Scraper
 
@@ -458,4 +459,8 @@ class MetasploitParser(Scraper):
                         if urls:
                             URIs.extend(['/' + re.sub('(?:dash|#){(.*)}', url, uris[i]).lstrip('/') for url in urls if
                                          url != '/'])  # Add the new uri to the main array
+        
+        blacklist = regex.findall(r'(Exploit\s*[aA].*|Vendor.*|Software.*|Ref.*)', self.exploit)
+        if blacklist:
+            URIs = [item for item in URIs if item not in blacklist]
         return URIs

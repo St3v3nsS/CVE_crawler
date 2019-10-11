@@ -140,4 +140,7 @@ class RubyScraper(Scraper):
                 print(e)
                 pass
         finally:
+            blacklist = regex.findall(r'(Exploit\s*[aA].*|Vendor.*|Software.*|Ref.*)', self.exploit)
+            if blacklist:
+                URIs = [item for item in URIs if item not in blacklist]
             return self.extract_url(URIs)

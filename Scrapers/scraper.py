@@ -42,17 +42,17 @@ class Scraper(object):
                          'chromium']
 
         bad_values = ['[', '\\r', '&', '*', ';', ')', ']', '(', '}', '{', '+', '=', '>', '<', '\\', ',', '/bin/', 'cmd',
-                      '/div', '"', 'pre', 'target', 'path', 'HTTP', 'sys.arg', 'argv', 'x-php', '/usr/',
+                      '/div', '"', 'pre', 'target', 'path', 'http', 'sys.arg', 'argv', 'x-php', '/usr/',
                       '\/www.', 'http', 'x-', '__',
                       'altervista']
 
-        bad_values_equals = ['c', 'for', 'or', 'ind', 'IP', 'bin', 'ksh', 'TCP/IP', '', 'html', 'jpg', 'image', 'txt',
+        bad_values_equals = ['c', 'for', 'or', 'ind', 'ip', 'bin', 'ksh', 'tcp/ip', '', 'html', 'jpg', 'image', 'txt',
                              'xml', 'png', 'form', 'webp', 'json', 'script', 'body', 'p', 'h1', 'h2', 'a', 'form',
                              'iframe',
                              'xhtml', 'head', 'title', 'address', 'td', 'tr', '=', 'span', 'gif', 'jpeg', 'css', 'style'
                                                                                                                  'plain',
                              'table', 'pjpeg', 'media', 'if', 'textarea', 'center', 'font', 'str0ke', 'hostname', 'quicktime',
-                             'form-data']
+                             'form-data', 'windows']
 
         for uri in URIs:
             if isinstance(uri, tuple):
@@ -64,7 +64,7 @@ class Scraper(object):
             if uri.startswith(('com/', 'net/', 'org/')):
                 uri = uri[3:]
 
-            if '\n' in uri:
+            if '\n' in uri or uri.startswith('../'):
                 continue
 
             try:

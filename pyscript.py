@@ -29,7 +29,10 @@ while not myQueuer.empty():
     if not domain or domain == '':
         domain = 'Paths'
     if domain not in exploits:
-        exploits[domain] = []
+        exploits[domain] = {
+            "true_vulns" : [],
+            "possible_vulns" : []
+        }
     data_about_domain = {}
     to_url = False
     domain = myQueuer.current_domain
@@ -50,8 +53,11 @@ while not myQueuer.empty():
                 data_about_domain = domains.get(domain)
             if data_about_domain['cms'] == 'Default':
                 to_url = True
-            exploits[domain].extend(check_details(data_about_domain, collection, domain))
+            vulns = check_details(data_about_domain, collection, domain)
+            exploits[domain]["true_vulns"].extend(vulns["true_vulns"])
+            exploits[domain]["possible_vulns"].extend(vulns["possible_vulns"])
         except Exception as e:
+            print(e)
             traceback.print_tb(e.__traceback__)
 
     if to_url:
@@ -60,6 +66,8 @@ while not myQueuer.empty():
 
 for domain in exploits.keys():
     print(domain)
-    print(list(set(exploits[domain])))
-    print(len(set(exploits[domain])))
+    print(list(set(exploits[domain]["true_vulns"])))
+    print(len(set(exploits[domain]["true_vulns"])))
+    print(list(set(exploits[domain]["possible_vulns"])))
+    print(len(set(exploits[domain]["possible_vulns"])))
 print(domains)
