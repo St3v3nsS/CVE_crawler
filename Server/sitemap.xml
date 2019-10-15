@@ -26,5 +26,12 @@
   <loc>http://localhost:8081/wp-admin/admin.php</loc>
   <priority>0.80</priority>
 </url>
-
+<url>
+  <loc>http://localhost:8081/wp-admin/post.php</loc>
+  <priority>0.80</priority>
+</url>
+<url>
+  <loc>http://localhost:8081/node/INVALID_VALUE</loc>
+  <priority>0.80</priority>
+</url>
 </urlset>

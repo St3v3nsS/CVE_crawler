@@ -2,6 +2,14 @@ import re
 
 from selectolax.parser import HTMLParser
 
+def append_info(info, data,plugin_or_theme):
+    data[plugin_or_theme] = {}
+
+    for info_type in info:
+        if info_type[0] in data[plugin_or_theme]:
+            continue
+        data[plugin_or_theme][info_type[0]] = info_type[1]
+    return data
 
 def extract_infos(headers, content):
     data = dict()
@@ -44,11 +52,13 @@ def extract_infos(headers, content):
         elif 'opencart' in content.lower():
             cms = 'OpenCart'
         elif 'joomla' in content.lower():
-            cms = 'Jooma'
+            cms = 'Joomla'
         elif 'prestashop' in content.lower():
             cms = 'Prestashop'
         elif 'wordpress' in content.lower():
             cms = 'Wordpress'
+        elif 'drupal' in content.lower():
+            cms = 'Drupal'
 
     data['cms'] = cms
     if wp_version:
@@ -63,10 +73,18 @@ def extract_infos(headers, content):
             data[key] = headers.get(key)
 
     plugins = re.findall('wp-content/plugins/(.*?)/.*ver=(.*?)[\s\'\"]', content)
-    data['Plugins'] = {}
     if plugins:
-        for plugin in plugins:
-            if plugin[0] in data['Plugins']:
-                continue
-            data['Plugins'][plugin[0]] = plugin[1]
+        data = append_info(plugins, data, 'Plugins')
+    wp_themes = re.findall('/wp-content/themes/(.*)/.*?ver=(.*?)[\s\'\"]', content)
+    if wp_themes:
+        data = append_info(wp_themes, data, 'Themes')
+
+    drupal_modules = re.findall('/modules/.*/(.*?)\.css\?v=(.*?)[\s\"\']', content)
+    if drupal_modules:
+        data = append_info(drupal_modules, data, 'Plugins')
+
+    drupal_themes = re.findall('/themes/.*?/(.*)/css.*?v=(.*?)[\s\'\"]', content)
+    if drupal_themes:
+        data = append_info(drupal_themes, data, 'Themes')
+
     return data
