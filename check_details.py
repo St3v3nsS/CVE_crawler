@@ -9,6 +9,7 @@ def update_vulns(doc, vulns, domain, founded_version=True, is_plugin=False, alre
         print("founded " + str(founded_version) + '\tIsPLugin ' + str(is_plugin) + '\t already ' + str(already_founded_version) + '\tversionindesc ' + str(version_in_desc))
     
     valid = False
+    print(doc.get('EDB-ID'))
     if doc.get('URI'):
         for url in doc.get('URI'):
             resp = requests.head('http://' + domain + url)
@@ -33,62 +34,63 @@ def remove_xs(versions):
 
 def extract_vulns(doc, vversion, vulns, domain, name, description, is_plugin, already_founded_version, cms):
 
+    regexx = regex.sub('_', ' ', cms) + ' '
     # name part
     founded_version = False
     version_in = False
     between_version_from_name = regex.findall(r'((?:[\dx]+\.?)+\s*(?:-\d+)?)\s*<=?\s*((?:[\dx]+\.?)+\s*(?:-\d+)?)', name)
     if between_version_from_name:
         version_in = True
-        if doc.get('EDB-ID') == '47335':
+        if doc.get('EDB-ID') == '47371':
             print(between_version_from_name)
         between_version_from_name = remove_xs(between_version_from_name)
-        if doc.get('EDB-ID') == '47335':
+        if doc.get('EDB-ID') == '47371':
             print(between_version_from_name)
         founded_version = check_version(between_version_from_name, vversion, '<>')
         return (update_vulns(doc, vulns, domain,founded_version, is_plugin, already_founded_version, version_in), founded_version)
 
-    single_version_from_name = regex.findall(r'(?<![<=>\s\.\d])\s*((?:\d+\.[\dx]+\.?)+\s*(?:-\d+)?)', name, timeout=2)
+    single_version_from_name = regex.findall(regexx + r'(?<![<=>\s\.\d])\s*((?:(?:\d+\.)+[\dx]+)(?:\s*?)(?:-\d+)?)', name, timeout=2)
     if single_version_from_name:
         version_in = True
         
         single_version_from_name = remove_xs(single_version_from_name)
         founded_version = check_version(single_version_from_name, vversion, '==')
-        if doc.get('EDB-ID') == '47335':
+        if doc.get('EDB-ID') == '47371':
             print("N-FIXED        --------->" + str(single_version_from_name))
             print(vversion + str(founded_version))
         return (update_vulns(doc, vulns, domain,founded_version, is_plugin, already_founded_version, version_in), founded_version)
 
     if not founded_version:
-        small_version_from_name = regex.findall( r'(?:<=?)\s*((?:[\dx]+\.?)+\s*(?:-\d+)?)', name)
+        small_version_from_name = regex.findall(regexx + r'(?:<=?)\s*((?:[\dx]+\.?)+\s*(?:-\d+)?)', name)
         if small_version_from_name:
             version_in = True
             small_version_from_name = remove_xs(small_version_from_name)
             founded_version = check_version(small_version_from_name, vversion, '<=')
-            if doc.get('EDB-ID') == '47335':
+            if doc.get('EDB-ID') == '47371':
                 print("N-SMALL        --------->" + str(small_version_from_name) + str(founded_version))
             return (update_vulns(doc, vulns, domain,founded_version, is_plugin, already_founded_version, version_in), founded_version)
 
     if not founded_version:
-        bigger_version_from_name = regex.findall( r'(?:>=?)\s*((?:[\dx]+\.?)+\s*(?:-\d+)?)', name)
+        bigger_version_from_name = regex.findall(regexx + r'(?:>=?)\s*((?:[\dx]+\.?)+\s*(?:-\d+)?)', name)
         if bigger_version_from_name:
             version_in = True
             bigger_version_from_name = remove_xs(bigger_version_from_name)
             founded_version = check_version(bigger_version_from_name, vversion, '>=')
-            if doc.get('EDB-ID') == '47335':
+            if doc.get('EDB-ID') == '47371':
                 print("N-BIGGER       --------->" + str(bigger_version_from_name))
             return (update_vulns(doc, vulns, domain,founded_version, is_plugin, already_founded_version, version_in), founded_version)
 
     if not founded_version:
         # desc part
-        regex_between = regex.findall(r'(?<!\w-)((?:\d+?\.?)+)\s*-\s*((?:\d+?\.?)+)(?![\d\-]|$)', description, timeout=2)
-        regex_small = regex.findall( r'(?:(?:<=?)\s*v?((?:\d+?\.?)+)|v?((?:\d+?\.?)+)\s*(?:<=?))', description, timeout=2)
-        regex_bigger = regex.findall( r'(?:(?:>=?)\s*v?((?:\d+?\.?)+)|(?!(?<=\w))v?((?:\d+?\.?)+)\s*(?:>=?))', description, timeout=2)
-        if doc.get('EDB-ID') == '47335':
+        regex_between = regex.findall(regexx + r'(?<!\w-)((?:\d+?\.?)+)\s*-\s*((?:\d+?\.?)+)(?![\d\-]|$)', description, timeout=2)
+        regex_small = regex.findall(regexx + r'(?:(?:<=?)\s*v?((?:\d+?\.?)+)|v?((?:\d+?\.?)+)\s*(?:<=?))', description, timeout=2)
+        regex_bigger = regex.findall(regexx + r'(?:(?:>=?)\s*v?((?:\d+?\.?)+)|(?!(?<=\w))v?((?:\d+?\.?)+)\s*(?:>=?))', description, timeout=2)
+        if doc.get('EDB-ID') == '47371':
             print("D-NTYET        --------->" + str(1))
         if regex_between:
             version_in = True
             founded_version = check_version(regex_between, vversion, '<>')
-            if doc.get('EDB-ID') == '47335':
+            if doc.get('EDB-ID') == '47371':
                 print(description)
                 print("D-NTYET        --------->" + str(regex_between) + str(founded_version))
             return (update_vulns(doc, vulns, domain,founded_version, is_plugin, already_founded_version, version_in), founded_version)
@@ -98,11 +100,11 @@ def extract_vulns(doc, vversion, vulns, domain, name, description, is_plugin, al
             version_in = True
             if isinstance(v1, tuple):
                 v1 = v1[0] if v1[0] else v1[1]
-            if doc.get('EDB-ID') == '47335':
+            if doc.get('EDB-ID') == '47371':
                 print("D-NTYET        --------->" + str(v1) + str(vversion))
             if version.parse(v1) >= version.parse(vversion):
                 founded_version = True
-                if doc.get('EDB-ID') == '47335':
+                if doc.get('EDB-ID') == '47371':
                     print("D-SMALL        --------->" + str(v1))
                 return (update_vulns(doc, vulns, domain,founded_version, is_plugin, already_founded_version, version_in), True)
         elif regex_bigger and not founded_version:
@@ -110,11 +112,11 @@ def extract_vulns(doc, vversion, vulns, domain, name, description, is_plugin, al
             version_in = True
             if isinstance(v2, tuple):
                 v2 = v2[0] if v2[0] else v2[1]
-            if doc.get('EDB-ID') == '47335':
+            if doc.get('EDB-ID') == '47371':
                 print("D-NTYET        --------->" + str(v2))
             if version.parse(vversion) >= version.parse(v2):
                 founded_version = True
-                if doc.get('EDB-ID') == '47335':
+                if doc.get('EDB-ID') == '47371':
                     print("D-BIGGER       --------->" + str(v2))
                 return (update_vulns(doc, vulns, domain,founded_version, is_plugin, already_founded_version, version_in), True)
         elif vversion and vversion != 'version' and (vversion in description or vversion in name):
@@ -147,13 +149,13 @@ def check_details(data, collection, domain):
         "possible_vulns": []
     }
     print(f'Domain in check {domain}')
-
+    vversion = data['version']
+    cms = data['cms'].lower()
     for doc in collection.find({}):
         description = doc.get('Description')
         name = doc.get('Name')
-        vversion = data['version']
-        cms = data['cms'].lower()
         founded_version = False
+
         if not description:
             description = ''
 
@@ -174,12 +176,12 @@ def check_details(data, collection, domain):
             except TimeoutError as e:
                 pass
 
-        vulns = extract_infos(data, description, name, cms, doc, vulns, domain, founded_version, 'Plugins')
-        vulns = extract_infos(data, description, name, cms, doc, vulns, domain, founded_version, 'Themes')
+        vulns = extract_infos(data, description, name, cms, doc, vulns, domain, vversion, 'Plugins')
+        vulns = extract_infos(data, description, name, cms, doc, vulns, domain, vversion, 'Themes')
 
     return vulns
 
-def extract_infos(data, description, name, cms, doc, vulns, domain, founded_version, plug_or_theme):
+def extract_infos(data, description, name, cms, doc, vulns, domain, vversion, plug_or_theme):
     if plug_or_theme in data:
         for key in data[plug_or_theme].keys():
             plugin = regex.sub('_', r' ', key).lower()
@@ -187,7 +189,7 @@ def extract_infos(data, description, name, cms, doc, vulns, domain, founded_vers
 
             if (plugin in description or plugin in name) and (cms in description or cms in name):
                 try:
-                    print(doc.get('Vulnerability'))
+                    (fake_vulns, founded_version) = extract_vulns(doc, vversion, vulns,domain, name, description, False, False, cms)
                     (vulns, _) = extract_vulns(doc, vvversion, vulns,domain, name, description, True, founded_version, plugin)
                 except TimeoutError as e:
                     pass

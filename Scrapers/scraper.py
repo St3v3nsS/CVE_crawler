@@ -172,6 +172,7 @@ class Scraper(object):
                 except TimeoutError as e:
                     print('Some shiet ' + str(e))
                     continue
+        URI = [regex.sub(r'(\/\.\.)+', '', regex.sub('//', '/', item)) for item in URI if 'Windows' not in item]
         return URI
 
     def is_parsed(self):

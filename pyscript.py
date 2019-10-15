@@ -64,6 +64,8 @@ def crawler(argv):
         if to_url:
             exploits[domain]["possible_vulns"].extend(check(urlparse(url).path, collection))
         myQueuer.parsed_url.append(url)
+    
+    exploits[domain]["possible_vulns"] = [item for item in exploits[domain]["possible_vulns"] if item not in exploits[domain]["true_vulns"]]
 
     for domain in exploits.keys():
         print(domain)
