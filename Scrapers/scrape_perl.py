@@ -91,18 +91,8 @@ class PerlScraper(Scraper):
             vversion = ' -- '.join(vversion)
             targets = ' -- '.join(targets)
             name = ' -- '.join(name)
-
-            myDict = {
-                "EDB-ID": self.name,
-                "Vulnerability": title,
-                "Name": self.title,
-                "Description": name + ' ' + description + ' Version: ' + vversion + ' Tested on: ' + targets,
-                "Platform": self.platform,
-                "References": references,
-                "Type": self.exploit_type,
-                "Date": self.date,
-                "URI": list(set(URI))
-            }
+            description = name + ' ' + description + ' Version: ' + vversion + ' Tested on: ' + targets,
+            myDict = self.create_object_for_mongo(title, description, references, URI)
 
             cves.update({"EDB-ID": self.name}, myDict, upsert=True)
 

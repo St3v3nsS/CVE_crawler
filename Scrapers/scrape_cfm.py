@@ -67,6 +67,7 @@ class CFMScraper(Scraper):
                 "Vulnerability": title,
                 "Name": self.title,
                 "Description": name + ' ' + description + ' Version: ' + vversion + ' Tested on: ' + targets,
+                "Versions": self.get_version_from_name(),
                 "Platform": self.platform,
                 "References": references,
                 "Type": self.exploit_type,
