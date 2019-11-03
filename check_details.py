@@ -25,6 +25,9 @@ def update_vulns(doc, vulns, domain, founded_version=True, is_plugin=False, alre
     return vulns
 
 def check_version(fixed, my_version, operation):
+    if(fixed == '5.2.2'):
+        print(str(fixed) + ' ' + my_version + ' ' + operation)
+        print() 
     if operation == '==':
         if version.parse(fixed) == version.parse(my_version):
             return True
@@ -45,6 +48,10 @@ def check_version(fixed, my_version, operation):
             return True
     return False
 
+def get_vulns(doc, vulns, domain, vversion, exploit_cms, key, already_founded_version=False):
+    founded_version_for_cms = any(check_version(item.get(next(iter(item.keys()))),vversion, next(iter(item.keys()))) for item in exploit_cms.get(key)) 
+    return (update_vulns(doc, vulns, domain, founded_version_for_cms, version_in_desc=True, already_founded_version=already_founded_version), founded_version_for_cms) 
+
 def check_details(data, collection, domain):
     vulns = {
         "true_vulns": [],
@@ -59,13 +66,18 @@ def check_details(data, collection, domain):
         name = doc.get('Name')
         founded_version_for_cms = False
         versions = doc.get('Versions')
+        if not isinstance(versions, dict):
+            print(doc.get('EDB-ID'))
+            print(versions)
+            print(type(versions))
+            print()
+            continue
         exploit_cms = versions.get('CMS')
-
         if not description:
             description = ''
 
         else:
-            description = description.lower()
+            description = description[0].lower()
             description = regex.sub('(?:up to|before)', '<=', description)
             description = regex.sub('between', '-', description)
             description = regex.sub('</?h\d+>', '', description)
@@ -75,27 +87,31 @@ def check_details(data, collection, domain):
             name = name.lower()
         
         if len(exploit_cms.keys()) == 1 and versions.get('is_plugin') == 'no' and versions.get('is_theme') == 'no':
-            key =  next(iter(exploit_cms.keys()))
-            if cms in key:
-                founded_version_for_cms = any(check_version(item.get(next(iter(item.keys()))),vversion, next(iter(item.keys()))) for item in exploit_cms.get(key)) 
-                vulns = update_vulns(doc, vulns, domain, founded_version_for_cms, version_in_desc=True) 
+            if versions.get('connection_between'):
+                pass
+            else:
+                for key in exploit_cms.keys():
+                    if cms in key.lower():
+                        vulns, _ = get_vulns(doc, vulns, domain, vversion, exploit_cms, key)
 
         if versions.get('is_plugin') == 'yes':
-            vulns = extract_infos(data, description, name, cms, doc, vulns, domain, vversion, 'Plugins')
+            vulns = extract_infos(data, description, name, cms, doc, vulns, domain, vversion, 'Plugins', exploit_cms)
         elif versions.get('is_theme') == 'yes':
-            vulns = extract_infos(data, description, name, cms, doc, vulns, domain, vversion, 'Themes')
+            vulns = extract_infos(data, description, name, cms, doc, vulns, domain, vversion, 'Themes', exploit_cms)
      
     return vulns
 
-def extract_infos(data, description, name, cms, doc, vulns, domain, vversion, plug_or_theme):
+def extract_infos(data, description, name, cms, doc, vulns, domain, vversion, plug_or_theme, exploit_cms):
     if plug_or_theme in data:
-        for key in data[plug_or_theme].keys():
-            plugin = regex.sub('_', r' ', key).lower()
-            vvversion = data[plug_or_theme][key].lower()
-
-            if (plugin in description or plugin in name) and (cms in description or cms in name):
-                try:
-                    pass
-                except TimeoutError as e:
-                    pass
+        for keyy in data[plug_or_theme].keys():
+            plugin = regex.sub('_', r' ', keyy).lower()
+            vvversion = data[plug_or_theme][keyy].lower()
+            founded_version_for_plug = False
+            for key in exploit_cms.keys():
+                if (plugin in description or plugin in name) and (cms in description or cms in name) and (cms in key.lower()):
+                    try:                        
+                        fake_vulns, founded_version_for_plug = get_vulns(doc, vulns, domain, vversion, exploit_cms, key)
+                        vulns, _ = get_vulns(doc, vulns, domain, vversion, exploit_cms, key, founded_version_for_plug)
+                    except TimeoutError as e:
+                        pass
     return vulns

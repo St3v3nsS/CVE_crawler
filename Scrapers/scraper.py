@@ -214,7 +214,6 @@ class Scraper(object):
         items = [self.remove_xs(version) for version in versions]
         return '.'.join(items)
 
-
     def append_founded(self, versions, lst_item, version):
         between = regex.findall(r'((?:[\dx]+\.?)+\s*(?:-\d+)?)(\s*<=?\s*)((?:[\dx]+\.?)+\s*(?:-(?:[\dx]+\.?)+)?)', version)
         single = regex.findall(r'(?:x64|x32|x86|(?<![<=>\-\s\.\d]))\s*((?:(?:\d+\.?)+(?:[\dx]+)?)(?:\s*?)(?:-(?:[\dx]+\.?)+)?)(?!\w)', version)
@@ -223,7 +222,7 @@ class Scraper(object):
         
 
         if between:
-            versions["CMS"][lst_item].append({"<>" : tuple(self.remove_dash(between[0][0].strip()), self.remove_dash(between[0][2].strip()))})
+            versions["CMS"][lst_item].append({"<>" : (self.remove_dash(between[0][0].strip()), self.remove_dash(between[0][2].strip()))})
         elif single:
             to_append = '=='
             if len(versions["CMS"][lst_item]) >= 1:
@@ -238,22 +237,23 @@ class Scraper(object):
     def get_version_from_name(self):
         
         version = regex.findall(r'(.*)\s-\s\S', self.title, timeout=5)
-        if not version:
-            return ''
-        version = version[0]
         connection = None
-        if regex.findall(' and ', version):
-            connection = 'and'
-            version = regex.sub(' and ', ' / ', version)
-        list_of_versions = version.split('/')
-        list_of_versions = [item.strip() for item in list_of_versions]
-        lst_item = None
         versions = {
             "connection_between": connection,
             "CMS" : {},
             "is_plugin": "no",
             "is_theme": "no"
         }
+        if not version:
+            return json.dumps(versions)
+        version = version[0]
+        if regex.findall(' and ', version):
+            connection = 'and'
+            version = regex.sub(' and ', ' / ', version)
+        list_of_versions = version.split('/')
+        list_of_versions = [item.strip() for item in list_of_versions]
+        lst_item = None
+        
         for version in list_of_versions:
             if ' plugin ' in version.lower() or 'component' in version.lower() or 'module' in version.lower():
                 versions["is_plugin"] = "yes"
@@ -283,7 +283,7 @@ class Scraper(object):
                 "EDB-ID": self.name,
                 "Vulnerability": title,
                 "Name": self.title,
-                "Description": description,
+                "Description": str(description),
                 "Versions": json.loads(self.get_version_from_name()),
                 "Platform": self.platform,
                 "References": references,
