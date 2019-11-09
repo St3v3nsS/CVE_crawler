@@ -33,6 +33,8 @@ def crawler(argv):
         if domain not in exploits:
             exploits[domain] = {
                 "true_vulns" : [],
+                "almost_true": [],
+                "probable_vulns": [],
                 "possible_vulns" : []
             }
         data_about_domain = {}
@@ -57,6 +59,8 @@ def crawler(argv):
                     to_url = True
                 vulns = check_details(data_about_domain, collection, domain)
                 exploits[domain]["true_vulns"].extend(vulns["true_vulns"])
+                exploits[domain]["almost_true"].extend(vulns["almost_true"])
+                exploits[domain]["probable_vulns"].extend(vulns["probable_vulns"])
                 exploits[domain]["possible_vulns"].extend(vulns["possible_vulns"])
             except Exception as e:
                 print(e)
@@ -66,13 +70,17 @@ def crawler(argv):
         myQueuer.parsed_url.append(url)
     
     exploits[domain]["possible_vulns"] = [item for item in exploits[domain]["possible_vulns"] if item not in exploits[domain]["true_vulns"]]
-
+    print()
     for domain in exploits.keys():
         print(domain)
+        print("True Vulns")
         print(list(set(exploits[domain]["true_vulns"])))
-        print(len(set(exploits[domain]["true_vulns"])))
+        print("Almost true Vulns")
+        print(list(set(exploits[domain]["almost_true"])))
+        print("Probable Vulns")
+        print(list(set(exploits[domain]["probable_vulns"])))
+        print("Possible Vulns")
         print(list(set(exploits[domain]["possible_vulns"])))
-        print(len(set(exploits[domain]["possible_vulns"])))
     print(domains)
 
 if __name__ == "__main__":

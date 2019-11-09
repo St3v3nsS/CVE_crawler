@@ -274,7 +274,7 @@ class MetasploitParser(Scraper):
                 "EDB-ID": self.name,
                 "Vulnerability": title,
                 "Date": self.date,
-                "Versions": json.loads(self.get_version_from_name()),
+                "Versions": json.loads(self.get_version_from_name(jsonf.get('Description'))),
             }
 
             arr = ['Name', 'Description', 'Platform', 'References', 'Targets']

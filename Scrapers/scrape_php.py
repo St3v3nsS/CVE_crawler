@@ -81,7 +81,7 @@ class PHPScraper(Scraper):
                     references.append(['URL', ref])
 
             URI = self.parse_url()
-            description = name + ' ' + description + ' Version: ' + vversion + ' Tested on: ' + targets,
+            description = name + ' ' + description + ' Version: ' + vversion + ' Tested on: ' + targets
             myDict = self.create_object_for_mongo(title, description, references, URI)
 
             cves.update({"EDB-ID": self.name}, myDict, upsert=True)

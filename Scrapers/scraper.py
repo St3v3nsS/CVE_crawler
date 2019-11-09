@@ -25,7 +25,12 @@ class Scraper(object):
                             format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 
         self.logger = logging.getLogger('Scraper')
-
+        # useful regexes
+        self.between = r'((?:[\dx]+\.?)+\s*(?:-\d+)?)(\s*<=?\s*)((?:[\dx]+\.?)+\s*(?:-(?:[\dx]+\.?)+)?)'
+        self.single = r'(?:x64|x32|x86|(?<![<=>\-\s\.\d]))\s*((?:(?:\d+\.?)+(?:[\dx]+)?)(?:\s*?)(?:-(?:[\dx]+\.?)+)?)(?!\w)'
+        self.small = r'(<=?)\s*((?:[\dx]+\.?)+\s*(?:-(?:[\dx]+\.?)+)?)'
+        self.big = r'(>=?)\s*((?:[\dx]+\.?)+\s*(?:-(?:[\dx]+\.?)+)?)'
+    
     def parse_infos(self):
         pass
 
@@ -172,7 +177,7 @@ class Scraper(object):
                 except TimeoutError as e:
                     print('Some shiet ' + str(e))
                     continue
-        URI = [regex.sub(r'(\/\.\.)+', '', regex.sub('//', '/', item)) for item in URI if 'Windows' not in item]
+        URI = [regex.sub(r'(\/\.\.)+', '', regex.sub(r'//', '/', item)) for item in URI if 'Windows' not in item]
         return URI
 
     def is_parsed(self):
@@ -212,14 +217,14 @@ class Scraper(object):
     def remove_dash(self, version):
         versions = version.split('-')
         items = [self.remove_xs(version) for version in versions]
-        return '.'.join(items)
+        return '.'.join(items).strip(',.;! ')
 
     def append_founded(self, versions, lst_item, version):
-        between = regex.findall(r'((?:[\dx]+\.?)+\s*(?:-\d+)?)(\s*<=?\s*)((?:[\dx]+\.?)+\s*(?:-(?:[\dx]+\.?)+)?)', version)
-        single = regex.findall(r'(?:x64|x32|x86|(?<![<=>\-\s\.\d]))\s*((?:(?:\d+\.?)+(?:[\dx]+)?)(?:\s*?)(?:-(?:[\dx]+\.?)+)?)(?!\w)', version)
-        small = regex.findall(r'(<=?)\s*((?:[\dx]+\.?)+\s*(?:-(?:[\dx]+\.?)+)?)', version)
-        big = regex.findall(r'(>=?)\s*((?:[\dx]+\.?)+\s*(?:-(?:[\dx]+\.?)+)?)', version)
         
+        between = regex.findall(self.between, version)
+        single = regex.findall(self.single, version)
+        small = regex.findall(self.small, version)
+        big = regex.findall(self.big, version)
 
         if between:
             versions["CMS"][lst_item].append({"<>" : (self.remove_dash(between[0][0].strip()), self.remove_dash(between[0][2].strip()))})
@@ -234,15 +239,18 @@ class Scraper(object):
             versions["CMS"][lst_item].append({big[0][0].strip():self.remove_dash(big[0][1].strip())})
         return versions
 
-    def get_version_from_name(self):
-        
+
+    def get_version_from_name(self, description):
+        self.cms_regex = r'(?<![.\d])([\w\s!\']+(?:-\w)?[\w\s!\']+\s*?)(?:[<=>\d]+|$)'
+
         version = regex.findall(r'(.*)\s-\s\S', self.title, timeout=5)
         connection = None
         versions = {
             "connection_between": connection,
             "CMS" : {},
             "is_plugin": "no",
-            "is_theme": "no"
+            "is_theme": "no", 
+            "description": {}
         }
         if not version:
             return json.dumps(versions)
@@ -250,6 +258,10 @@ class Scraper(object):
         if regex.findall(' and ', version):
             connection = 'and'
             version = regex.sub(' and ', ' / ', version)
+        if regex.findall('(.*)\s*\+\s*', version):
+            connection = 'and'
+            version = regex.sub(r'(.*)\s*\+\s*', '\g<1> / ', version)
+        version = regex.sub(self.single + r'\s((?:(?:\d+\.?)+(?:[\dx]+)?)(?:\s*?)(?:-(?:[\dx]+\.?)+)?)(?!\w)',' \g<1> / \g<2>', version)
         list_of_versions = version.split('/')
         list_of_versions = [item.strip() for item in list_of_versions]
         lst_item = None
@@ -260,23 +272,154 @@ class Scraper(object):
             elif ' theme ' in version.lower():
                 versions["is_theme"] = "yes"
             if lst_item == None:
-                lst_item = regex.findall(r'(?<![.\d])([\w\s]+\s?)(?:[<=>\d]|$)', version)
+                lst_item = regex.findall(self.cms_regex, version)
                 if lst_item:
                     lst_item = lst_item[0].strip()
                     versions["CMS"][lst_item] = []
                     versions = self.append_founded(versions, lst_item, version)
                 else: lst_item = None
-            elif lst_item in version or not regex.findall('(?<![.\d])([\w\s]+\s)[<=>\d]', version):
+            elif lst_item in version or not regex.findall(self.cms_regex, version):
                 versions = self.append_founded(versions, lst_item, version)
             else:
-                lst_item = regex.findall('(?<![.\d])([\w\s]+\s)[<=>\d]', version)
+                lst_item = regex.findall(self.cms_regex, version)
                 if lst_item:
                     lst_item = lst_item[0].strip()
                     versions["CMS"][lst_item] = []
                     versions = self.append_founded(versions, lst_item, version)
                 else: lst_item = None
-        
+        versions['description'] = self.get_version_from_desc(description, versions) 
+        for cms in versions.get('CMS').keys():
+            versions['CMS'][cms] = self.remove_dups_dict(cms, versions['CMS'])
         return json.dumps(versions)
+
+    def get_version_from_desc(self, description, versions):
+        description = description.lower()
+        description = regex.sub('up to', '<=', description)
+        cms = versions.get('CMS')
+        to_append = {}
+        cms_to_check = cms.keys()
+
+        # match the already founded cms
+        for cms in cms_to_check:
+            cmss = cms.lower()
+            items = cmss.split(' ')
+            to_append[cms] = []
+            for i in range(len(items)):
+                regexp = r'\s*'.join(items[i:])
+                if regex.findall(r'prior to ' + regexp, description):
+                    regexp1 = r'prior to ' + regexp + r'(((?:x64|x32|x86|(?<![<=>\-\s\.\d]))\s((?:(?:\d+\.?)+(?:[\dx]+)?)(?:\s*?)(?:-(?:[\dx]+\.?)+)?)(?!\w),?)+)(?: and)?((?:x64|x32|x86|(?<![<=>\-\s\.\d]))\s((?:(?:\d+\.?)+(?:[\dx]+)?)(?:\s*?)(?:-(?:[\dx]+\.?)+)?)(?!\w))?'
+                    regexp1 = regex.findall(regexp, description)
+                    if regexp1:
+                        if isinstance(regexp1, tuple):
+                            grp1 = regexp1[0][1].split(', ')
+                            for grp in grp1:
+                                to_append[cms].append({'<=': self.remove_dash(grp)})
+                            if len(regexp[0])>=5:
+                                to_append[cms].append({'<=': self.remove_dash(regexp[0][4])})
+            
+                if regex.findall(regexp, description):
+                    if versions.get('is_plugin') == 'yes':
+                        words_to_check = [regexp + r'\s*' + w for w in ['module', 'component', 'plugin', 'plug-in', 'plug in']]
+                        to_append = self.extract_version_brute_force(words_to_check, description, to_append, cms, regexp)                       
+                    elif versions.get('is_theme') == 'yes':
+                        words_to_check = [regexp + r'theme']
+                        to_append = self.extract_version_brute_force(words_to_check, description, to_append, cms, regexp)
+                    else:
+                        to_append = self.extract_version_brute_force([regexp], description, to_append, cms, regexp)
+                
+                    
+            regexp = r'affects .*? versions prior to \s*((?:(?:\d+\.?)+(?:[\dx]+)?)(?:\s*?)(?:-(?:[\dx]+\.?)+)?) and' + self.single
+            regexp = regex.findall(regexp, description)
+            if regexp:
+                to_append[cms].extend([{'<=': self.remove_dash(regexp[0][0])}, {'==': self.remove_dash(regexp[0][1])}])
+            else:
+                regexp = r'versions prior to \s*((?:(?:\d+\.?)+(?:[\dx]+)?)(?:\s*?)(?:-(?:[\dx]+\.?)+)?)'
+                regexp = regex.findall(regexp, description)
+                if regexp:
+                    to_append[cms].extend([{'==':self.remove_dash(regexp[0])}])
+                else:
+                    regexp = r'affects versions ((?:[\dx]+\.?)+\s*(?:-\d+)?)(\s*<=?\s*)((?:[\dx]+\.?)+\s*(?:-(?:[\dx]+\.?)+)?) and ((?:[\dx]+\.?)+\s*(?:-\d+)?)(\s*<=?\s*)((?:[\dx]+\.?)+\s*(?:-(?:[\dx]+\.?)+)?)'
+                    regexp = regex.findall(regexp, description)
+                    if regexp:
+                        to_append[cms].extend([{'<>':(self.remove_dash(regexp[0][0]), self.remove_dash(regexp[0][2]))}, {'<>':(self.remove_dash(regexp[0][3]), self.remove_dash(regexp[0][5]))}])
+                    else:
+                        regexp = r'affects versions ((?:[\dx]+\.?)+\s*(?:-\d+)?)(\s*<=?\s*)((?:[\dx]+\.?)+\s*(?:-(?:[\dx]+\.?)+)?)'
+                        regexp = regex.findall(regexp, description)
+                        if regexp:
+                            to_append[cms].extend([{'<>':(self.remove_dash(regexp[0][0]), self.remove_dash(regexp[0][2]))}])
+
+        # try find new ones
+        possible_cms = ['Joomla!', 'WordPress', 'Drupal', 'PHP', 'MySQL', 'Jupiter', 'Nginx', 'Apache', 'OpenCart', 'Prestashop']
+        for cms in possible_cms:
+            lowerr = cms.lower()
+            if cms == 'Joomla!':
+                lowerr += r'?'
+            possible_regexes = ['running ' + lowerr, lowerr + r'\s*before', lowerr + r'\s*(?:v(?:ersions?)?)?\s*', 'running ' + lowerr + r'\s*' +self.single + r'\s*or\s*']
+            for item in possible_regexes:
+                possible_regexess = [item + r'\s*' + ver for ver in [self.between, self.single, self.big, self.small]]
+                
+                for regexp in possible_regexess:
+                    values = regex.findall(regexp, description)
+
+                    if values:
+                        if cms not in to_append.keys():
+                            to_append[cms] = []
+
+                        if self.between in regexp:
+                            to_append[cms].extend([{'<>':(self.remove_dash(values[0][0]), self.remove_dash(values[0][2]))}])
+                        elif self.single in regexp:
+                            if isinstance(values[0], tuple):
+                                to_append[cms].extend([{'==': self.remove_dash(values[0][0])}, {'==': self.remove_dash(values[0][1])}])
+                            else:
+                                to_append[cms].extend([{'==':self.remove_dash(values[0])}])
+                        elif self.small in regexp:
+                            to_append[cms].append({values[0][0].strip():self.remove_dash(values[0][1].strip())})
+                        else:
+                            to_append[cms].append({values[0][0].strip():self.remove_dash(values[0][1].strip())})
+                        break
+        for cms in to_append.keys():
+            to_append[cms] = self.remove_dups_dict(cms, to_append)
+
+        return to_append
+
+    def remove_dups_dict(self, cms, to_append):
+        return [dict(t) for t in {tuple(d.items()) for d in to_append[cms]}]
+
+    def extract_version_brute_force(self, words_to_check, description, to_append, cms, regexp):
+        not_found = True
+
+        for word in words_to_check:
+            if regex.findall(word, description):
+                possible = ['below', self.single]
+                for pos in possible:
+                    regexp = word + r'\s*(?:v(?:ersions?)?)?\s*' + self.single + r'(and\s*{})'.format(pos)
+                    vers = regex.findall(regexp, description)
+                    if vers:
+                        not_found = False
+                        if 'below' in vers[0][1]:
+                            to_append[cms].extend([{'<=': self.remove_dash(vers[0])}])
+                        elif 'and' in vers[0][1]:
+                            to_append[cms].extend([{'==': self.remove_dash(vers[0])}, {'==', self.remove_dash(vers[1])}])
+                if not_found:
+                    regexes_to_test = [word + r'\s*(?:v(?:ersions?)?)?\s*' + item for item in [self.between, self.small, self.big, self.single]]
+                    
+                    for regexp in regexes_to_test:
+                        
+                        vers = regex.findall(regexp, description)
+                        if vers:
+                            not_found = False
+                            if self.single in regexp:
+                                to_append[cms].extend([{'==': self.remove_dash(vers[0])}])
+                            else:
+                                to_append[cms].extend([{vers[0][0]: self.remove_dash(vers[0][1])}])
+                            break
+        if not_found:   
+            value = regex.findall(regexp + self.small, description)
+            if value:
+                not_found = False
+                to_append[cms].extend([{value[0][0]: self.remove_dash(value[0][1])}])
+        
+        return to_append     
 
     def create_object_for_mongo(self, title, description, references, URI):
         myDict = {
@@ -284,7 +427,7 @@ class Scraper(object):
                 "Vulnerability": title,
                 "Name": self.title,
                 "Description": str(description),
-                "Versions": json.loads(self.get_version_from_name()),
+                "Versions": json.loads(self.get_version_from_name(str(description))),
                 "Platform": self.platform,
                 "References": references,
                 "Type": self.exploit_type,
