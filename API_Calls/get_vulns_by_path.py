@@ -1,5 +1,9 @@
 import re
 import sys
+sys.path.append('/home/john/Project/CVE_crawler/')
+from Mongo_Connection import get_db as mongodb
+
+cves = "cves"
 
 
 def check(url, collection):
@@ -17,9 +21,7 @@ def check(url, collection):
 
 if __name__ == '__main__':
     url = sys.argv[1]
-    from pymongo import MongoClient
+    db = mongodb.get_db()
 
-    client = MongoClient('mongodb://localhost:27017')
-    db = client['exploits']
-    collection = db['cves']
+    collection = db[cves]
     print(check(url, collection))

@@ -5,14 +5,16 @@ from check_path import check
 from Queuer import Queuer
 from urllib.parse import urlparse
 from extract_infos import extract_infos
-from pymongo import MongoClient
 from check_details import check_details
 import traceback
 import time
+sys.path.append('/home/john/Project/CVE_crawler/')
+from Mongo_Connection import get_db as mongodb
 
-client = MongoClient('mongodb://localhost:27017')
-db = client['exploits']
-collection = db['cves']
+cves = "cves"
+
+db = mongodb.get_db()
+collection = db[cves]
 
 def crawler(argv):
     domains = {}

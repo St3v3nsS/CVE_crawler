@@ -1,0 +1,11 @@
+2019-11-02 09:52:40,826 - Scraper - ERROR - /home/john/Licenta/exploitdb/exploitdb-master/exploits/linux/local/20926.txt	Expecting value: line 1 column 1 (char 0)	
+2019-11-02 09:58:19,996 - Scraper - ERROR - /home/john/Licenta/exploitdb/exploitdb-master/exploits/windows/webapps/31221.txt	Expecting value: line 1 column 1 (char 0)	
+2019-11-03 13:26:26,939 - Scraper - ERROR - ['/']
+2019-11-03 13:42:17,389 - Scraper - ERROR - /home/john/Licenta/exploitdb/exploitdb-master/exploits/linux/local/20926.txt	Expecting value: line 1 column 1 (char 0)	
+2019-11-03 13:49:49,311 - Scraper - ERROR - /home/john/Licenta/exploitdb/exploitdb-master/exploits/windows/webapps/31221.txt	Expecting value: line 1 column 1 (char 0)	
+2019-11-06 10:36:33,713 - Scraper - ERROR - ['/']
+2019-11-06 11:06:29,829 - Scraper - ERROR - ['/']
+2019-11-07 11:31:25,482 - Scraper - ERROR - ['/']
+2019-11-07 14:37:57,841 - Scraper - ERROR - ['/']
+2019-11-08 08:51:02,469 - Scraper - ERROR - ['/']
+2019-11-09 08:57:41,737 - Scraper - ERROR - ['/']

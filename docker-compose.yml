@@ -1,0 +1,96 @@
+version: '3'
+services:
+  mongodb:
+    image: mongo
+    restart: on-failure
+    command: mongod
+    container_name: mongodb
+    environment:
+      - MONGO_INITDB_DATABASE=exploits
+      - MONGO_INITDB_ROOT_USERNAME=root
+      - MONGO_INITDB_ROOT_PASSWORD=root
+    ports:
+      - "27017:27017"
+      - "27019:27019"
+    networks: 
+      - dmz
+    volumes:
+      - /data/mongodb_crawler:/data/db
+      - /home/john/Licenta/CVE_crawler/Mongo_Connection/init-mongo.js:/docker-entrypoint-initdb.d/init-mongo.js:ro
+      - /home/john/Licenta/CVE_crawler/Mongo_Connection:/home/john/Project/CVE_crawler/Mongo_Connection
+      - /home/john/Licenta/CVE_crawler/Mongo_Connection/mongod.conf:/etc/mongod.conf
+
+  api:
+    build:
+      context: .
+      dockerfile: ./Dockerfiles/Dockerfile-api
+    container_name: api
+    env_file: api.env
+    depends_on:
+      - mongodb
+    links:
+      - mongodb
+    networks: 
+      - dmz
+    volumes:
+      - /home/john/Licenta/CVE_crawler/API_Calls:/home/john/Project/CVE_crawler/API_Calls
+      - /home/john/Licenta/CVE_crawler/Mongo_Connection:/home/john/Project/CVE_crawler/Mongo_Connection
+
+
+  scraper:
+    build:
+      context: .
+      dockerfile: ./Dockerfiles/Dockerfile-scraper
+    container_name: scraper
+    env_file: api.env
+    restart: on-failure
+    command: python3 update_exploits.py /home/john/Project/myfile.zip /home/john/Project/exploitdb/
+    depends_on:
+      - mongodb
+    links:
+      - mongodb
+    networks: 
+      - dmz
+    volumes:
+      - /home/john/Licenta/CVE_crawler/Scrape_Exploit:/home/john/Project/CVE_crawler/Scrape_Exploit
+      - /home/john/Licenta/CVE_crawler/Mongo_Connection:/home/john/Project/CVE_crawler/Mongo_Connection
+
+  
+  crawler:
+    build:
+      context: .
+      dockerfile: ./Dockerfiles/Dockerfile-crawler
+    container_name: crawler
+    restart: on-failure
+    entrypoint: python3 pyscript.py
+    command: "https://www.amarculeseidiana.com"
+    env_file: api.env
+    depends_on:
+      - mongodb
+    links:
+      - mongodb
+    networks: 
+      - dmz
+    volumes:
+      - /home/john/Licenta/CVE_crawler/Crawler:/home/john/Project/CVE_crawler/Crawler
+      - /home/john/Licenta/CVE_crawler/Mongo_Connection:/home/john/Project/CVE_crawler/Mongo_Connection
+
+  server:
+    restart: on-failure
+    build:
+      context: .
+      dockerfile: ./Dockerfiles/Dockerfile-server
+    container_name: server
+    networks: 
+      - dmz
+    volumes:
+      - /home/john/Licenta/CVE_crawler/Server:/home/john/Project/CVE_crawler/Server
+      - /home/john/Licenta/CVE_crawler/Mongo_Connection:/home/john/Project/CVE_crawler/Mongo_Connection
+
+    ports:
+      - "8081:8081"
+
+networks: 
+  dmz:
+    driver: bridge
+

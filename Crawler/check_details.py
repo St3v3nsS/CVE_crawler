@@ -104,6 +104,7 @@ def check_details(data, collection, domain):
         versions = doc.get('Versions')
         exploit_title = versions.get('CMS')
         exploit_desc = versions.get('description')
+
         if not description:
             description = ''
 
@@ -144,6 +145,7 @@ def get_vulns(exploit_desc, exploit_title, cms,cms_or_plug, doc, domain, vulns, 
                 "is_plugin_or_theme": is_plugin
             }
             vulns = update_vulns(doc, vulns, domain, obj)
+
     return vulns
 
 def extract_infos(data, description, name, cms, doc, vulns, domain, vversion, plug_or_theme, exploit_title, exploit_desc):

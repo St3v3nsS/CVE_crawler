@@ -1,6 +1,8 @@
 import re
 import sys
-
+sys.path.append('/home/john/Project/CVE_crawler/')
+from Mongo_Connection import get_db as mongodb
+cves = "cves"
 
 def check(date, collection):
     vulns = []
@@ -12,9 +14,7 @@ def check(date, collection):
 
 if __name__ == '__main__':
     date = sys.argv[1]
-    from pymongo import MongoClient
+    db = mongodb.get_db()
 
-    client = MongoClient('mongodb://localhost:27017')
-    db = client['exploits']
-    collection = db['cves']
+    collection = db[cves]
     print(check(date, collection))

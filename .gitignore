@@ -1,3 +1,10 @@
 .idea
-Scrapers/__pycache__
+Scrape_Exploit/Scrapers/__pycache__
 __pychache__
+env/
+Pipfile*
+/.vscode
+API_Calls/__pycache__
+Crawler/__pycache__
+Scrape_Exploit/__pycache__
+dataset.csv

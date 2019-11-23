@@ -1,6 +1,8 @@
 import re
 import sys
-
+sys.path.append('/home/john/Project/CVE_crawler/')
+from Mongo_Connection import get_db as mongodb
+cves = "cves"
 
 def check(cve, collection):
     vulns = []
@@ -14,18 +16,16 @@ def check(cve, collection):
         if not name:
             name = ''
         if cve in name or cve in description or cve in doc.get('Vulnerability'):
-            vulns.append(doc.get('Vulnerability'))
+            vulns.append(doc)
     return vulns
 
 
 if __name__ == '__main__':
     print('USAGE : python3 get_vulns_by_cve.py CVE')
     cve = sys.argv[1]
-    from pymongo import MongoClient
+    db = mongodb.get_db()
 
-    client = MongoClient('mongodb://localhost:27017')
-    db = client['exploits']
-    collection = db['cves']
+    collection = db[cves]
 
     if not cve.lower().startswith('cve'):
         cve = 'CVE-' + cve

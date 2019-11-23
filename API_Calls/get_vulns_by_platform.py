@@ -1,6 +1,8 @@
 import re
 import sys
-
+sys.path.append('/home/john/Project/CVE_crawler/')
+from Mongo_Connection import get_db as mongodb
+collection = "cves"
 
 def check(platform, collection):
     vulns = []
@@ -12,9 +14,6 @@ def check(platform, collection):
 
 if __name__ == '__main__':
     platform = sys.argv[1]
-    from pymongo import MongoClient
-
-    client = MongoClient('mongodb://localhost:27017')
-    db = client['exploits']
-    collection = db['cves']
+    db = mongodb.get_db()
+    collection = db[collection]
     print(check(platform, collection))
