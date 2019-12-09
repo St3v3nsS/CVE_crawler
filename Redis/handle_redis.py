@@ -5,7 +5,7 @@ import time
 rj = Client(host='172.31.0.3', port=6379, decode_responses=True)
 
 def create_key(infos, is_uuid=False):
-    key = infos.get("cms") + '_' + infos.get("version") + generate_values(infos, "Plugins") + '_' + generate_values(infos, "Themes") \
+    key = infos.get("cms") + '_' + infos.get("version") + '_' + generate_values(infos, "Plugins") + '_' + generate_values(infos, "Themes") \
         if is_uuid else infos.get("cms") + '_' + infos.get("version")
 
     return key[:-1] if key.endswith('_') else key

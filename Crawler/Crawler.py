@@ -1,16 +1,16 @@
 import requests
 import sys
 from get_urls import extract
-from check_path import check
 from Queuer import Queuer
 from urllib.parse import urlparse
 from extract_infos import extract_infos
-from check_details import check_details
+from Checker import Checker
 import traceback
 import time
 sys.path.append('/home/john/Project/CVE_crawler/')
 from Mongo_Connection import get_db as mongodb
 from Detect_Malware import check_file
+from Redis import handle_redis
 
 cves = "cves"
 
@@ -32,6 +32,7 @@ def crawler(argv):
     domains = {}
     myQueuer = Queuer(argv)
     exploits = {}
+    myChecker = None
     while not myQueuer.empty():
         url = myQueuer.pop()
         print(f'Url in pyscript {url}')
@@ -39,6 +40,8 @@ def crawler(argv):
         domain = urlparse(url).netloc
         if domain not in myQueuer.parsed_domains:
             myQueuer.current_domain = domain
+            is_parsed = False
+            myChecker = Checker(domain)
         elif domain != myQueuer.current_domain:
             continue
 
@@ -74,36 +77,50 @@ def crawler(argv):
             try:
                 resp = requests.get(url, headers={'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/77.0.3865.75 Safari/537.36'})
                 response = extract(resp.content)
-                myQueuer.push(response, exploits[domain])
-
-                if domain not in domains:
-                    headers, data = get_index_page(domain)
-                    if headers is None:
-                        headers = resp.headers
-                        data = resp.text
-                    data_about_domain = extract_infos(headers, data)
-                    domains[domain] = data_about_domain
-                else:
-                    data_about_domain = domains.get(domain)
                 
-                if data_about_domain['cms'] == 'Default':
-                    to_url = True
-
                 if '/tag/' in url or '/feed' in url:
                     myQueuer.parsed_url.append(url)
                     continue
+                
+                myQueuer.push(response, exploits[domain])
+                if not is_parsed:
+                    if domain not in domains:
+                        headers, data = get_index_page(domain)
+                        if headers is None:
+                            headers = resp.headers
+                            data = resp.text
+                        data_about_domain = extract_infos(headers, data)
+                        domains[domain] = data_about_domain
+                    else:
+                        data_about_domain = domains.get(domain)
+                    
+                    if data_about_domain['cms'] == 'Default':
+                        to_url = True
 
-                if not to_url: 
-                    vulns = check_details(data_about_domain, collection, domain)
-                    exploits[domain]["true_vulns"].extend(vulns["true_vulns"])
-                    exploits[domain]["almost_true"].extend(vulns["almost_true"])
-                    exploits[domain]["probable_vulns"].extend(vulns["probable_vulns"])
-                    exploits[domain]["possible_vulns"].extend(vulns["possible_vulns"])
+                    if not to_url: 
+                        
+                        if handle_redis.get_redis_just_cms(data_about_domain) is not None:
+                            print("In rediss...")
+                            myChecker.check_details(data_about_domain, collection) # to edit, look just for the founded exploits, not all collection
+                            vulns = myChecker.get_all_vulns()
+                        else:
+                            myChecker.check_details(data_about_domain, collection)
+                            vulns = myChecker.get_all_vulns()
+                        exploits[domain]["true_vulns"].extend(vulns["true_vulns"])
+                        exploits[domain]["almost_true"].extend(vulns["almost_true"])
+                        exploits[domain]["probable_vulns"].extend(vulns["probable_vulns"])
+                        exploits[domain]["possible_vulns"].extend(vulns["possible_vulns"])
+                        is_parsed = True
+
+                        handle_redis.update_redis_full(data_about_domain, myChecker.get_vulns_by_cms_and_plug())
+                        handle_redis.update_redis_just_cms(data_about_domain, myChecker.get_vulns_by_cms())
+
             except Exception as e:
                 print(e)
                 traceback.print_tb(e.__traceback__)
         if to_url:
-            exploits[domain]["possible_vulns"].extend(check(urlparse(url).path, collection))
+            myChecker.check_path(urlparse(url).path, collection)
+            exploits[domain]["possible_vulns"].extend(myChecker.get_all_vulns())
         myQueuer.parsed_url.append(url)
     
     exploits[domain]["possible_vulns"] = [item for item in exploits[domain]["possible_vulns"] if item not in exploits[domain]["true_vulns"]]

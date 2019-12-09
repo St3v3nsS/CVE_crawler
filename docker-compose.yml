@@ -79,6 +79,7 @@ services:
     networks: 
       - dmz
     volumes:
+      - /home/john/Licenta/CVE_crawler/Redis:/home/john/Project/CVE_crawler/Redis
       - /home/john/Licenta/CVE_crawler/Crawler:/home/john/Project/CVE_crawler/Crawler
       - /home/john/Licenta/CVE_crawler/Scrape_Exploit:/home/john/Project/CVE_crawler/Scrape_Exploit
       - /home/john/Licenta/CVE_crawler/Detect_Malware:/home/john/Project/CVE_crawler/Detect_Malware
