@@ -1,6 +1,6 @@
 import requests
 import sys
-from script1 import extract
+from get_urls import extract
 from check_path import check
 from Queuer import Queuer
 from urllib.parse import urlparse
@@ -10,20 +10,32 @@ import traceback
 import time
 sys.path.append('/home/john/Project/CVE_crawler/')
 from Mongo_Connection import get_db as mongodb
+from Detect_Malware import check_file
 
 cves = "cves"
 
 db = mongodb.get_db()
 collection = db[cves]
 
+def get_index_page(domain):
+    try:
+        resp = requests.get(url='http://' + domain, headers={'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/77.0.3865.75 Safari/537.36'})
+        if resp.status_code == 200:
+            return resp.headers, resp.text
+    except Exception:
+        resp = requests.get(url='http://'+ domain + '/index.php', headers={'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/77.0.3865.75 Safari/537.36'})
+        if resp.status_code == 200:
+            return resp.headers, resp.text
+    return None, None
+
 def crawler(argv):
     domains = {}
     myQueuer = Queuer(argv)
     exploits = {}
-    first_domain = ''
     while not myQueuer.empty():
         url = myQueuer.pop()
         print(f'Url in pyscript {url}')
+        
         domain = urlparse(url).netloc
         if domain not in myQueuer.parsed_domains:
             myQueuer.current_domain = domain
@@ -37,8 +49,24 @@ def crawler(argv):
                 "true_vulns" : [],
                 "almost_true": [],
                 "probable_vulns": [],
-                "possible_vulns" : []
+                "possible_vulns" : [],
+                "malware": []
             }
+        if not url.startswith('http'):
+            myurl = "http://" + domain + url
+        else:
+            myurl = url
+        try:
+            malw_or_not = check_file.get_prediction_from_single_pe(myurl)
+            print(malw_or_not)
+        except Exception:
+            pass
+
+        if malw_or_not is not None:
+            if isinstance(malw_or_not, tuple):
+                exploits[domain]["malware"].append(malw_or_not[1])
+            continue
+        
         data_about_domain = {}
         to_url = False
         domain = myQueuer.current_domain
@@ -48,22 +76,29 @@ def crawler(argv):
                 response = extract(resp.content)
                 myQueuer.push(response, exploits[domain])
 
+                if domain not in domains:
+                    headers, data = get_index_page(domain)
+                    if headers is None:
+                        headers = resp.headers
+                        data = resp.text
+                    data_about_domain = extract_infos(headers, data)
+                    domains[domain] = data_about_domain
+                else:
+                    data_about_domain = domains.get(domain)
+                
+                if data_about_domain['cms'] == 'Default':
+                    to_url = True
+
                 if '/tag/' in url or '/feed' in url:
                     myQueuer.parsed_url.append(url)
                     continue
 
-                if domain not in domains:
-                    data_about_domain = extract_infos(resp.headers, resp.text)
-                    domains[domain] = data_about_domain
-                else:
-                    data_about_domain = domains.get(domain)
-                if data_about_domain['cms'] == 'Default':
-                    to_url = True
-                vulns = check_details(data_about_domain, collection, domain)
-                exploits[domain]["true_vulns"].extend(vulns["true_vulns"])
-                exploits[domain]["almost_true"].extend(vulns["almost_true"])
-                exploits[domain]["probable_vulns"].extend(vulns["probable_vulns"])
-                exploits[domain]["possible_vulns"].extend(vulns["possible_vulns"])
+                if not to_url: 
+                    vulns = check_details(data_about_domain, collection, domain)
+                    exploits[domain]["true_vulns"].extend(vulns["true_vulns"])
+                    exploits[domain]["almost_true"].extend(vulns["almost_true"])
+                    exploits[domain]["probable_vulns"].extend(vulns["probable_vulns"])
+                    exploits[domain]["possible_vulns"].extend(vulns["possible_vulns"])
             except Exception as e:
                 print(e)
                 traceback.print_tb(e.__traceback__)
@@ -82,7 +117,9 @@ def crawler(argv):
         print("Probable Vulns")
         print(list(set(exploits[domain]["probable_vulns"])))
         print("Possible Vulns")
-        print(list(set(exploits[domain]["possible_vulns"])))
+        print(str(list(set(exploits[domain]["possible_vulns"]))).encode('UTF-8'))
+        print("Malware founded")
+        print(list(set(exploits[domain]["malware"])))
     print(domains)
 
 if __name__ == "__main__":

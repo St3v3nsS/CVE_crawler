@@ -13,6 +13,8 @@ def check(platform, collection):
 
 
 if __name__ == '__main__':
+    if len(sys.argv) < 2:
+        print('USAGE : python3 get_vulns_by_platform.py windows')
     platform = sys.argv[1]
     db = mongodb.get_db()
     collection = db[collection]

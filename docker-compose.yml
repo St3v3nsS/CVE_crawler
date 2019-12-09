@@ -3,8 +3,10 @@ services:
   mongodb:
     image: mongo
     restart: on-failure
-    command: mongod
+    command: mongod --quiet
     container_name: mongodb
+    depends_on: 
+      - redis
     environment:
       - MONGO_INITDB_DATABASE=exploits
       - MONGO_INITDB_ROOT_USERNAME=root
@@ -19,6 +21,7 @@ services:
       - /home/john/Licenta/CVE_crawler/Mongo_Connection/init-mongo.js:/docker-entrypoint-initdb.d/init-mongo.js:ro
       - /home/john/Licenta/CVE_crawler/Mongo_Connection:/home/john/Project/CVE_crawler/Mongo_Connection
       - /home/john/Licenta/CVE_crawler/Mongo_Connection/mongod.conf:/etc/mongod.conf
+    
 
   api:
     build:
@@ -28,11 +31,14 @@ services:
     env_file: api.env
     depends_on:
       - mongodb
+      - redis
+      - server
     links:
       - mongodb
     networks: 
       - dmz
     volumes:
+      - /home/john/Licenta/CVE_crawler/Redis:/home/john/Project/CVE_crawler/Redis
       - /home/john/Licenta/CVE_crawler/API_Calls:/home/john/Project/CVE_crawler/API_Calls
       - /home/john/Licenta/CVE_crawler/Mongo_Connection:/home/john/Project/CVE_crawler/Mongo_Connection
 
@@ -47,6 +53,7 @@ services:
     command: python3 update_exploits.py /home/john/Project/myfile.zip /home/john/Project/exploitdb/
     depends_on:
       - mongodb
+      - redis
     links:
       - mongodb
     networks: 
@@ -61,18 +68,20 @@ services:
       context: .
       dockerfile: ./Dockerfiles/Dockerfile-crawler
     container_name: crawler
-    restart: on-failure
-    entrypoint: python3 pyscript.py
-    command: "https://www.amarculeseidiana.com"
+    command: python3 Crawler.py http://172.31.0.2:8081/sitemap.xml
     env_file: api.env
     depends_on:
+      - server
       - mongodb
+      - redis
     links:
       - mongodb
     networks: 
       - dmz
     volumes:
       - /home/john/Licenta/CVE_crawler/Crawler:/home/john/Project/CVE_crawler/Crawler
+      - /home/john/Licenta/CVE_crawler/Scrape_Exploit:/home/john/Project/CVE_crawler/Scrape_Exploit
+      - /home/john/Licenta/CVE_crawler/Detect_Malware:/home/john/Project/CVE_crawler/Detect_Malware
       - /home/john/Licenta/CVE_crawler/Mongo_Connection:/home/john/Project/CVE_crawler/Mongo_Connection
 
   server:
@@ -82,15 +91,53 @@ services:
       dockerfile: ./Dockerfiles/Dockerfile-server
     container_name: server
     networks: 
-      - dmz
+      dmz:
+        ipv4_address: 172.31.0.2
     volumes:
       - /home/john/Licenta/CVE_crawler/Server:/home/john/Project/CVE_crawler/Server
       - /home/john/Licenta/CVE_crawler/Mongo_Connection:/home/john/Project/CVE_crawler/Mongo_Connection
 
     ports:
       - "8081:8081"
+    logging:
+      driver: none
+
+  ml_model:
+    restart: on-failure
+    build: 
+      context: .
+      dockerfile: ./Dockerfiles/Dockerfile-ml_model
+    container_name: ml_model
+    depends_on: 
+      - redis
+    networks: 
+      - dmz
+    depends_on: 
+      - server
+      - redis
+    volumes: 
+      - /home/john/Licenta/CVE_crawler/Scrape_Exploit:/home/john/Project/CVE_crawler/Scrape_Exploit
+
+  redis:
+    image: redislabs/rejson:latest
+    container_name: redis
+    depends_on: 
+      - server
+    networks: 
+      dmz:
+        ipv4_address: 172.31.0.3
+    ports: 
+      - "6379:6379"
+    command: redis-server /usr/local/etc/redis/redis.conf
+    volumes:
+      - ./redis.conf:/usr/local/etc/redis/redis.conf
+      - /home/john/Licenta/CVE_crawler/Redis:/var/lib/redis
 
 networks: 
   dmz:
-    driver: bridge
+    ipam:
+      driver: default
+      config:
+          - subnet: 172.31.0.0/16
+      
 

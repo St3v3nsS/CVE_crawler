@@ -8,7 +8,6 @@ cves = "cves"
 
 def check(url, collection):
     vulns = []
-    print(f'Url in check {url}')
     blacklisted_paths = ['/', '/index.php', None, '']
 
     if url in blacklisted_paths:
@@ -20,6 +19,8 @@ def check(url, collection):
 
 
 if __name__ == '__main__':
+    if len(sys.argv) < 2:
+        print('USAGE : python3 get_vulns_by_path.py /path/to/search')
     url = sys.argv[1]
     db = mongodb.get_db()
 

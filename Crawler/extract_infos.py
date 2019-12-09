@@ -16,7 +16,7 @@ def extract_infos(headers, content):
     headers = {k.lower(): v for k, v in headers.items()}
 
     # check wp version
-    wp_version = re.findall('wp-(?:emoji-release|embed)\.min\.js.*ver=(.*?)[\"\']', content)
+    wp_version = re.findall(r'wp-(?:emoji-release|embed)\.min\.js.*ver=(.*?)[\"\']', content)
     if wp_version:
        wp_version = wp_version[0]
 
@@ -29,7 +29,7 @@ def extract_infos(headers, content):
         if 'name' in attrs:
             if 'generator' == attrs['name'].lower():
                 cms = attrs['content']
-                version = re.findall('\d+\.*\d*\.*\d*', cms)
+                version = re.findall(r'\d+\.*\d*\.*\d*', cms)
                 if version:
                     version = version[0]
                 cms = re.sub(re.escape(version), '', cms).strip()
@@ -72,18 +72,18 @@ def extract_infos(headers, content):
         if key.startswith('x-') and headers.get(key) not in data.values():
             data[key] = headers.get(key)
 
-    plugins = re.findall('wp-content/plugins/(.*?)/.*ver=(.*?)[\s\'\"]', content)
+    plugins = re.findall(r'wp-content/plugins/(.*?)/.*ver=(.*?)[\s\'\"]', content)
     if plugins:
         data = append_info(plugins, data, 'Plugins')
-    wp_themes = re.findall('/wp-content/themes/(.*)/.*?ver=(.*?)[\s\'\"]', content)
+    wp_themes = re.findall(r'/wp-content/themes/(.*)/.*?ver=(.*?)[\s\'\"]', content)
     if wp_themes:
         data = append_info(wp_themes, data, 'Themes')
 
-    drupal_modules = re.findall('/modules/.*/(.*?)\.css\?v=(.*?)[\s\"\']', content)
+    drupal_modules = re.findall(r'/modules/.*/(.*?)\.css\?v=(.*?)[\s\"\']', content)
     if drupal_modules:
         data = append_info(drupal_modules, data, 'Plugins')
 
-    drupal_themes = re.findall('/themes/.*?/(.*)/css.*?v=(.*?)[\s\'\"]', content)
+    drupal_themes = re.findall(r'/themes/.*?/(.*)/css.*?v=(.*?)[\s\'\"]', content)
     if drupal_themes:
         data = append_info(drupal_themes, data, 'Themes')
 

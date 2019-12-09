@@ -13,6 +13,8 @@ def check(date, collection):
 
 
 if __name__ == '__main__':
+    if len(sys.argv) < 2:
+        print('USAGE : python3 get_vulns_by_date.py date')
     date = sys.argv[1]
     db = mongodb.get_db()
 

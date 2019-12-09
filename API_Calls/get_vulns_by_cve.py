@@ -21,7 +21,8 @@ def check(cve, collection):
 
 
 if __name__ == '__main__':
-    print('USAGE : python3 get_vulns_by_cve.py CVE')
+    if len(sys.argv) < 2:
+        print('USAGE : python3 get_vulns_by_cve.py CVE')
     cve = sys.argv[1]
     db = mongodb.get_db()
 
@@ -30,7 +31,7 @@ if __name__ == '__main__':
     if not cve.lower().startswith('cve'):
         cve = 'CVE-' + cve
     if len(cve.split('-')) < 3:
-        print('idiot')
+        print('USAGE : python3 get_vulns_by_cve.py CVE')
     else:
         cve = cve.replace('_', '-')
         print(check(cve, collection))

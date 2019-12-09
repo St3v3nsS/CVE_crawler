@@ -30,8 +30,6 @@ class Queuer(object):
         self.url_list = domain_lista + non_domain_lista
         if not any(self.current_domain in urlparse(x).netloc for x in self.url_list):
             self.parsed_domains.append(self.current_domain)
-            with open('/home/john/Desktop/parsed', 'a+') as f:
-                f.write(self.current_domain + '\n' + str(exploits) + '\n')
             self.current_domain = ''
         print(len(self.url_list))
 

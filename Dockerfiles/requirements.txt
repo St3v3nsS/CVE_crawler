@@ -9,3 +9,15 @@ progressbar
 tqdm
 httpserver==1.1.0
 progress
+python-magic
+lief
+sklearn
+keras==2.1.5
+matplotlib
+seaborn
+pandas
+tensorflow==1.5
+numpy
+h5py
+redis
+rejson
