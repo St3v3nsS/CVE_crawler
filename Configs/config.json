@@ -1,0 +1,25 @@
+{
+    "redis": {
+        "ip": "172.31.0.3",
+        "port": 6379
+    },
+    
+    "mongodb":{
+        "authSource": "exploits",
+        "authMechanism": "SCRAM-SHA-1",
+        "collections": {
+            "ce": "ce",
+            "parse_exp": "parse_exploit",
+            "cves" : "cves",
+            "exploitdb":"exploitdb",
+            "cve_refs": "cve_refs"
+        }
+    },
+
+    "paths": {
+        "download_path": "/home/john/Project/myfile.zip",
+        "extract_path": "/home/john/Project/exploitdb/",
+        "files_exploits": "/home/john/Project/exploitdb/exploitdb-master/files_exploits.csv",
+        "exploits": "/home/john/Project/exploitdb/exploitdb-master/exploits"
+    }
+}

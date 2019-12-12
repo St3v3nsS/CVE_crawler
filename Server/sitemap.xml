@@ -47,4 +47,8 @@
   <loc>http://172.31.0.2:8081/Files/windows.exe</loc>
   <priority>0.80</priority>
 </url>
+<url>
+  <loc>http://172.31.0.2:8081/Files/Virus.Win9x.PoshKill.1398</loc>
+  <priority>0.80</priority>
+</url>
 </urlset>

@@ -1,14 +1,17 @@
 import re
 import time
+import sys
 from builtins import any
 from urllib.parse import urlparse
 from urllib.parse import unquote
-
+sys.path.append('/home/john/Project/CVE_crawler/')
+from Loggers import logger
 
 class Queuer(object):
     def __init__(self, url_list):
         self.url_list = list(set(url_list))
         self.parsed_url = []
+        self.logger = logger.myLogger("Queuer")
         self.parsed_domains = []
         self.current_domain = ''
         self.blacklist = ['instagram', 'facebook', 'twitter', 'flickr', 'linkedin', 'whatsapp', 'pinterest',
@@ -18,8 +21,8 @@ class Queuer(object):
     def pop(self):
         return self.url_list.pop(0)
     
-    def push(self, list_to_push, exploits):
-
+    def push(self, list_to_push):
+        
         list_to_push = self.blacklisted_urls(list_to_push)
         self.url_list.extend(list_to_push)
         seen = set()
@@ -31,7 +34,7 @@ class Queuer(object):
         if not any(self.current_domain in urlparse(x).netloc for x in self.url_list):
             self.parsed_domains.append(self.current_domain)
             self.current_domain = ''
-        print(len(self.url_list))
+        self.logger.info(f'Pushed list. Remaining {len(self.url_list)}')
 
     def empty(self):
         return True if len(self.url_list) == 0 else False
