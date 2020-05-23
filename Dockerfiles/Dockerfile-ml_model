@@ -1,5 +1,5 @@
 FROM ubuntu:18.04 
-RUN apt-get update && apt-get -y install python3.6 -y && apt-get install -y python3-pip && apt-get install -y python3-dev
+RUN apt-get update && apt-get -y install python3.6 -y && apt-get install -y python3-pip && apt-get install -y python3-dev && apt-get -y install python-pydot python-pydot-ng graphviz
 
 ENV LANG C.UTF-8
 ADD ./Dockerfiles/requirements.txt ./requirements.txt

@@ -86,7 +86,8 @@ class Crawler(object):
                 if isinstance(malw_or_not, tuple):
                     self.exploits[domain]["malware"].append(malw_or_not[1])
                     self.logger.info(f'Founded a \033[91mMalware\033[0m file in {myurl}!')
-                self.logger.info(f'Founded a \033[32mLegit\033[0m file in {myurl}!')
+                else:
+                    self.logger.info(f'Founded a \033[32mLegit\033[0m file in {myurl}!')
                 continue
             
             data_about_domain = {}

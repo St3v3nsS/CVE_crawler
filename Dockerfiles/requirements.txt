@@ -21,3 +21,5 @@ numpy
 h5py
 redis
 rejson
+pydot
+graphviz
