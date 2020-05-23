@@ -1,7 +1,8 @@
 {
     "redis": {
         "ip": "172.31.0.3",
-        "port": 6379
+        "port": 6379,
+        "path": ".exploits"
     },
     
     "mongodb":{

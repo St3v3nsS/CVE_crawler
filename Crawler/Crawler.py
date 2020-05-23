@@ -27,6 +27,15 @@ class Crawler(object):
         self.logger = logger.myLogger("Crawler")
         self.logger.info("Initializing Crawler...")
         self.logger.info(f"Redis at {self.myRedis.get_rj()}")
+        ping = False
+        self.logger.warn('Waiting for Redis...')
+        while ping == False:
+            try:
+                ping = self.myRedis.get_rj().ping()
+            except:
+                pass
+            self.logger.info(str('Redis Alive:'+str(ping)))
+            time.sleep(1)
 
     def get_index_page(self, domain):
         try:
@@ -34,9 +43,11 @@ class Crawler(object):
             if resp.status_code == 200:
                 return resp.headers, resp.text
         except Exception:
-            resp = requests.get(url='http://'+ domain + '/index.php', headers={'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/77.0.3865.75 Safari/537.36'})
-            if resp.status_code == 200:
-                return resp.headers, resp.text
+            extensions = ['html', 'htm', 'php', 'asp', 'aspx']
+            for ext in extensions:
+                resp = requests.get(url='http://'+ domain + f'/index.{ext}', headers={'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/77.0.3865.75 Safari/537.36'})
+                if resp.status_code == 200:
+                    return resp.headers, resp.text
         return None, None
 
     def get_checker(self, domain):
@@ -74,7 +85,7 @@ class Crawler(object):
                     "is_parsed": False
                 }
             if not url.startswith('http'):
-                myurl = "http://" + domain + url
+                myurl = "http://" + url
             else:
                 myurl = url
             try:
@@ -85,68 +96,76 @@ class Crawler(object):
             if malw_or_not is not None:
                 if isinstance(malw_or_not, tuple):
                     self.exploits[domain]["malware"].append(malw_or_not[1])
-                    self.logger.info(f'Founded a \033[91mMalware\033[0m file in {myurl}!')
+                    self.logger.info(f'Found a \033[91mMalware\033[0m file in {myurl}!')
                 else:
-                    self.logger.info(f'Founded a \033[32mLegit\033[0m file in {myurl}!')
+                    self.logger.info(f'Found a \033[32mLegit\033[0m file in {myurl}!')
                 continue
             
             data_about_domain = {}
             to_url = False
             domain = self.myQueuer.current_domain
-            if url.startswith('http'):
-                try:
-                    resp = requests.get(url, headers={'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/77.0.3865.75 Safari/537.36'})
-                    response = extract(resp.content)
-                    if '/tag/' in url or '/feed' in url:
-                        self.myQueuer.parsed_url.append(url)
-                        continue
-                    
-                    self.myQueuer.push(response)
+           
+            try:
+                resp = requests.get(myurl, headers={'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/77.0.3865.75 Safari/537.36'})
+                response = extract(resp.content)
+                if '/tag/' in myurl or '/feed' in myurl:
+                    self.myQueuer.parsed_url.append(myurl)
+                    continue
+                
+                self.myQueuer.push(response)
 
-                    if not self.domains.get(domain)["is_parsed"]:
-                        if domain not in self.domains or not self.domains.get(domain)["data"]:
-                            headers, data = self.get_index_page(domain)
-                            if headers is None:
-                                headers = resp.headers
-                                data = resp.text
-                            data_about_domain = extract_infos(headers, data)
-                            self.domains[domain]["data"] = data_about_domain
+                if not self.domains.get(domain)["is_parsed"]:
+                    if domain not in self.domains or not self.domains.get(domain)["data"]:
+                        headers, data = self.get_index_page(domain)
+                        if headers is None:
+                            headers = resp.headers
+                            data = resp.text
+                        data_about_domain = extract_infos(headers, data)
+                        self.domains[domain]["data"] = data_about_domain
+                    else:
+                        data_about_domain = self.domains.get(domain)["data"]
+                    if data_about_domain['cms'] == 'Default':
+                        to_url = True
+
+                    if not to_url:
+                        self.myChecker.set_data(data_about_domain) 
+                        full = self.myRedis.get_redis_full(data_about_domain)
+                        self.logger.warn(f"FULL: {str(full)}")
+                        if full is not None and full:
+                            self.myChecker.update_vulns_from_redis(full)
                         else:
-                            data_about_domain = self.domains.get(domain)["data"]
-                        if data_about_domain['cms'] == 'Default':
-                            to_url = True
-
-                        if not to_url:
-                            self.myChecker.set_data(data_about_domain) 
-                            full = self.myRedis.get_redis_full(data_about_domain)
-                            if full is not None:
-                                self.myChecker.update_vulns_from_redis(full)
+                            just_cms = self.myRedis.get_redis_just_cms(data_about_domain)
+                            if just_cms is not None and just_cms:
+                                self.myChecker.update_vulns_just_cms(just_cms)
                             else:
-                                just_cms = self.myRedis.get_redis_just_cms(data_about_domain)
-                                if just_cms is not None:
-                                    self.myChecker.update_vulns_just_cms(just_cms)
-                                else:
-                                    self.myChecker.check_details()
-                            vulns = self.myChecker.get_all_vulns()
-                            self.exploits[domain]["true_vulns"].extend(vulns["true_vulns"])
-                            self.exploits[domain]["almost_true"].extend(vulns["almost_true"])
-                            self.exploits[domain]["probable_vulns"].extend(vulns["probable_vulns"])
-                            self.exploits[domain]["possible_vulns"].extend(vulns["possible_vulns"])
-                            self.domains[domain]["is_parsed"] = True
+                                self.myChecker.check_details()
+                        # also, check for route attack
+                        self.myChecker.check_path(urlparse(url).path)
+                        vulns = self.myChecker.get_all_vulns()
+                        self.exploits[domain]["true_vulns"].extend(vulns["true_vulns"])
+                        self.exploits[domain]["almost_true"].extend(vulns["almost_true"])
+                        self.exploits[domain]["probable_vulns"].extend(vulns["probable_vulns"])
+                        self.exploits[domain]["possible_vulns"].extend(vulns["possible_vulns"])
+                        self.domains[domain]["is_parsed"] = True
 
-                            self.update_redis(data_about_domain)
+                        self.update_redis(data_about_domain)
 
-                except Exception as e:
-                    self.logger.error(e)
-                    traceback.print_tb(e.__traceback__)
-            if to_url:
+            except Exception as e:
+                self.logger.error(e)
+                traceback.print_tb(e.__traceback__)
+            
+            if to_url or self.domains[domain]["is_parsed"]:
+                if self.domains[domain]["is_parsed"]:
+                    data_about_domain = self.domains.get(domain)["data"]
                 self.myChecker.check_path(urlparse(url).path)
                 self.exploits[domain]["possible_vulns"].extend(self.myChecker.get_all_vulns())
                 self.domains[domain]["is_parsed"] = True
                 self.update_redis(data_about_domain)
             self.myQueuer.parsed_url.append(url)
         
-        self.exploits[domain]["possible_vulns"] = [item for item in self.exploits[domain]["possible_vulns"] if item not in self.exploits[domain]["true_vulns"]]
+
+
+        self.exploits[domain]["possible_vulns"] = [item for item in self.exploits[domain]["possible_vulns"] if item not in ['true_vulns', 'almost_true', "probable_vulns", "possible_vulns"]]
         for domain in self.exploits.keys():
             self.logger.info(domain)
             self.logger.info("True Vulns")
@@ -157,7 +176,7 @@ class Crawler(object):
             self.logger.info(list(set(self.exploits[domain]["probable_vulns"])))
             self.logger.info("Possible Vulns")
             self.logger.info(str(list(set(self.exploits[domain]["possible_vulns"]))))
-            self.logger.info("Malware founded")
+            self.logger.info("Malware found")
             self.logger.info(list(set(self.exploits[domain]["malware"])))
         self.logger.info(self.domains)
 

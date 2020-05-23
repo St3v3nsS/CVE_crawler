@@ -105,11 +105,13 @@ class Checker(object):
         arr = [objecct.get('name') for objecct in objects]
         return arr.index(key)
 
+    # getting exploits from zero
     def check_details(self):
         self.logger.info('Checking details from zero')
         vversion = self.data['version']
         cms = self.data['cms'].lower()
         
+        # iterate through all mongodb docs and update
         for doc in self.collection.find({}):                        
             self.update_vulns_without_plugs(doc, cms, vversion)
             self.update_vulns_with_plugs(doc, cms, vversion)
@@ -131,23 +133,30 @@ class Checker(object):
                     "is_plugin_or_theme": is_plugin
                 }
                 self.update_vulns(doc, obj)
+                # update either plugins list or both in case is cms
                 if is_plugin:
                     self.vulns_by_cms_and_plugs.append({
                         "doc": doc.get("EDB-ID"),
                         "obj": obj
                     })
-                else:
+                else: 
                     self.vulns_by_cms.append({
+                        "doc": doc.get("EDB-ID"),
+                        "obj": obj
+                    })
+                    self.vulns_by_cms_and_plugs.append({
                         "doc": doc.get("EDB-ID"),
                         "obj": obj
                     })
 
     def extract_infos(self, description, name, cms, doc, vversion, plug_or_theme, exploit_title, exploit_desc):
-        
+        # check for plugin/theme
         if plug_or_theme in self.data:
             for keyy in self.data[plug_or_theme].keys():
+                # replace the _ with ' ' for things like photo_v12
                 plugin = regex.sub('_', r' ', keyy).lower()
                 vvversion = self.data[plug_or_theme][keyy].lower()
+                # get vulns for plugin 
                 self.get_vulns(exploit_desc, exploit_title, cms, plugin, doc, vversion, True, vvversion)
 
     def get_all_vulns(self):
@@ -159,20 +168,29 @@ class Checker(object):
     def get_vulns_by_cms_and_plug(self):
         return self.vulns_by_cms_and_plugs
 
+    # find exact match from redis and then just update vulnerabilities
     def update_vulns_from_redis(self, vulns):
         self.logger.info(f'Updating {len(vulns)} vulns from redis')
         for vuln in vulns:
             self.update_vulns(self.collection.find_one({"EDB-ID": vuln.get("doc")}), vuln.get("obj"))
-
+    
+    # Get the vulns from redis with only the cms
     def update_vulns_just_cms(self, vulns):
         self.logger.info(f'Updating {len(vulns)} vulns from redis with just cms')
+        # update with the exact match from just_cms
         self.update_vulns_from_redis(vulns)
+
         ids = [vuln.get("doc") for vuln in vulns]
         vversion = self.data['version']
         cms = self.data['cms'].lower()
+        # for each doc which was not in redis, update vulns with plugins
         for doc in self.collection.find({"EDB-ID": { '$nin': ids}}):
             self.update_vulns_with_plugs(doc, cms, vversion)
 
+    # Get the vulnerabilities with plugin/theme
+    # exploit_desc = version from desc
+    # exploit_title = version from title
+    # vversion = cms version
     def update_vulns_with_plugs(self, doc, cms, vversion):
         name, description, versions, exploit_title, exploit_desc = self.extract_doc_data(doc)
 
@@ -181,6 +199,10 @@ class Checker(object):
         elif versions.get('is_theme') == 'yes':
             self.extract_infos(description, name, cms, doc, vversion, 'Themes', exploit_title, exploit_desc)
 
+    # Get the vulnerabilities without plugins or themes
+    # exploit_desc = version from desc
+    # exploit_title = version from title
+    # vversion = cms version
     def update_vulns_without_plugs(self, doc, cms, vversion):
         _, _, versions, exploit_title, exploit_desc = self.extract_doc_data(doc)
 
@@ -190,6 +212,7 @@ class Checker(object):
             else:
                 self.get_vulns(exploit_desc, exploit_title, cms,cms, doc, vversion, False)
 
+    # Extract information from document
     def extract_doc_data(self, doc):
         description = doc.get('Description')
         name = doc.get('Name')
@@ -202,10 +225,18 @@ class Checker(object):
 
         return name, description, versions, exploit_title, exploit_desc
 
+    # Check for the route path if there is no common CMS
     def check_path(self, url):
         self.logger.info(f'Checking for url {url}')
         blacklisted_paths = ['/', '/index.php', None, '']
+        vulnsss = []
 
+        places = ["true_vulns", "almost_true", "probable_vulns"]
+        for place in places:
+            vulnsss.extend(self.vulns[place])
+ 
         if url not in blacklisted_paths:
             for doc in self.collection.find({"URI": {'$regex': regex.escape(url)}}):
-                self.vulns["possible_vulns"].append(doc.get('Vulnerability'))
+                vuln = doc.get('Vulnerability')
+                if vuln not in vulnsss:
+                    self.vulns["possible_vulns"].append(vuln)
