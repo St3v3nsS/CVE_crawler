@@ -28,14 +28,13 @@ class Crawler(object):
         self.logger.info("Initializing Crawler...")
         self.logger.info(f"Redis at {self.myRedis.get_rj()}")
         ping = False
-        self.logger.warn('Waiting for Redis...')
+        self.logger.info('Waiting for Redis...')
         while ping == False:
             try:
                 ping = self.myRedis.get_rj().ping()
             except:
                 pass
-            self.logger.info(str('Redis Alive:'+str(ping)))
-            time.sleep(1)
+            time.sleep(0.5)
 
     def get_index_page(self, domain):
         try:
@@ -128,9 +127,8 @@ class Crawler(object):
                         to_url = True
 
                     if not to_url:
-                        self.myChecker.set_data(data_about_domain) 
+                        self.myChecker.set_data(data_about_domain)
                         full = self.myRedis.get_redis_full(data_about_domain)
-                        self.logger.warn(f"FULL: {str(full)}")
                         if full is not None and full:
                             self.myChecker.update_vulns_from_redis(full)
                         else:
@@ -139,31 +137,17 @@ class Crawler(object):
                                 self.myChecker.update_vulns_just_cms(just_cms)
                             else:
                                 self.myChecker.check_details()
-                        # also, check for route attack
-                        self.myChecker.check_path(urlparse(url).path)
-                        vulns = self.myChecker.get_all_vulns()
-                        self.exploits[domain]["true_vulns"].extend(vulns["true_vulns"])
-                        self.exploits[domain]["almost_true"].extend(vulns["almost_true"])
-                        self.exploits[domain]["probable_vulns"].extend(vulns["probable_vulns"])
-                        self.exploits[domain]["possible_vulns"].extend(vulns["possible_vulns"])
-                        self.domains[domain]["is_parsed"] = True
-
-                        self.update_redis(data_about_domain)
+                        self.extract_vulns(data_about_domain=data_about_domain)
 
             except Exception as e:
                 self.logger.error(e)
                 traceback.print_tb(e.__traceback__)
             
-            if to_url or self.domains[domain]["is_parsed"]:
-                if self.domains[domain]["is_parsed"]:
-                    data_about_domain = self.domains.get(domain)["data"]
-                self.myChecker.check_path(urlparse(url).path)
-                self.exploits[domain]["possible_vulns"].extend(self.myChecker.get_all_vulns())
-                self.domains[domain]["is_parsed"] = True
-                self.update_redis(data_about_domain)
+            if to_url:
+                self.extract_vulns(url=url, data_about_domain=None)
+                
             self.myQueuer.parsed_url.append(url)
         
-
 
         self.exploits[domain]["possible_vulns"] = [item for item in self.exploits[domain]["possible_vulns"] if item not in ['true_vulns', 'almost_true', "probable_vulns", "possible_vulns"]]
         for domain in self.exploits.keys():
@@ -179,6 +163,18 @@ class Crawler(object):
             self.logger.info("Malware found")
             self.logger.info(list(set(self.exploits[domain]["malware"])))
         self.logger.info(self.domains)
+
+    def extract_vulns(self, data_about_domain=None, url=None):
+        if url is not None:
+            self.myChecker.check_path(urlparse(url).path)
+        vulns = self.myChecker.get_all_vulns()
+        self.exploits[domain]["true_vulns"].extend(vulns["true_vulns"])
+        self.exploits[domain]["almost_true"].extend(vulns["almost_true"])
+        self.exploits[domain]["probable_vulns"].extend(vulns["probable_vulns"])
+        self.exploits[domain]["possible_vulns"].extend(vulns["possible_vulns"])
+        self.domains[domain]["is_parsed"] = True
+
+        self.update_redis(data_about_domain)
 
     def update_redis(self, data_about_domain):
         exploits_full = self.myChecker.get_vulns_by_cms_and_plug()

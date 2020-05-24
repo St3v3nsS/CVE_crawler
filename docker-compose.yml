@@ -54,7 +54,7 @@ services:
     container_name: scraper
     env_file: api.env
     restart: on-failure
-    command: python3 update_exploits.py
+    command: python3 -W ignore update_exploits.py
     depends_on:
       - mongodb
       - redis
@@ -73,7 +73,7 @@ services:
       context: .
       dockerfile: ./Dockerfiles/Dockerfile-crawler
     container_name: crawler
-    command: python3 Crawler.py http://172.31.0.2:8081/sitemap.xml
+    command: python3 -W ignore Crawler.py http://172.31.0.2:8081/sitemap.xml
     env_file: api.env
     depends_on:
       - server
@@ -117,7 +117,7 @@ services:
       context: .
       dockerfile: ./Dockerfiles/Dockerfile-ml_model
     container_name: ml_model
-    command: python3 ml_system.py
+    command: python3 -W ignore ml_system.py
     depends_on: 
       - redis
     networks: 

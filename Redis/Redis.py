@@ -22,7 +22,6 @@ class Redis(object):
     def create_key(self, infos, is_uuid=False):
         key = infos.get("cms") + '_' + infos.get("version") + '_' + self.generate_values(infos, "Plugins") + '_' + self.generate_values(infos, "Themes") \
             if is_uuid else infos.get("cms") + '_' + infos.get("version")
-        self.logger.warn(f"Key: {str(key)}")
 
         return key[:-1] if key.endswith('_') else key
         
@@ -43,7 +42,6 @@ class Redis(object):
         self.logger.info(f"Inserted {key} just cms...")
 
     def update_redis_full(self, infos, exploits):
-
         key = self.create_key(infos, True)
         obj = {
             "data": infos,
@@ -53,6 +51,7 @@ class Redis(object):
         self.logger.info(f"Inserted full {key}...")
 
     def get_redis_just_cms(self, infos):
+
         key = self.create_key(infos)
         self.logger.info(f"Getting just cms {key}...")
         return self.rj.jsonget(key, Path(self.cfg.get("path")))
@@ -60,7 +59,6 @@ class Redis(object):
     def get_redis_full(self, infos):
         key = self.create_key(infos, True)
         self.logger.info(f"Getting full cms {key}...")
-        self.logger.warn(f"FULL REDIS {self.rj.jsonget(key, Path.rootPath())}")
 
         return self.rj.jsonget(key, Path(self.cfg.get("path")))
 

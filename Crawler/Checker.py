@@ -172,6 +172,11 @@ class Checker(object):
     def update_vulns_from_redis(self, vulns):
         self.logger.info(f'Updating {len(vulns)} vulns from redis')
         for vuln in vulns:
+            if vuln.get('obj').get('is_plugin_or_theme'):
+                self.vulns_by_cms_and_plugs.append(vuln)
+            else:
+                self.vulns_by_cms.append(vuln)
+                self.vulns_by_cms_and_plugs.append(vuln)
             self.update_vulns(self.collection.find_one({"EDB-ID": vuln.get("doc")}), vuln.get("obj"))
     
     # Get the vulns from redis with only the cms
